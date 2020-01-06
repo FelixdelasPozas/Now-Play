@@ -28,19 +28,6 @@
 
 namespace termcolor
 {
-  enum class color: unsigned short
-  {
-    grey      = 0,
-    red       = FOREGROUND_RED,
-    green     = FOREGROUND_GREEN,
-    yellow    = FOREGROUND_GREEN | FOREGROUND_RED,
-    blue      = FOREGROUND_BLUE,
-    magenta   = FOREGROUND_BLUE | FOREGROUND_RED,
-    cyan      = FOREGROUND_BLUE | FOREGROUND_GREEN,
-    white     = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED,
-    unchanged = white + 1
-  };
-
   //! Since C++ hasn't a way to hide something in the header from
   //! the outer access, I have to introduce this namespace which
   //! is used for internal purpose and should't be access from
@@ -55,7 +42,7 @@ namespace termcolor
       return false;
     }
 
-    inline void change_console_attributes(std::ostream &stream, color foreground, color background = color::unchanged)
+    inline void change_console_attributes(std::ostream &stream, int foreground, int background = -1)
     {
       static WORD defaultAttributes = 0;
 
@@ -73,7 +60,7 @@ namespace termcolor
       }
 
       // restore all default settings
-      if (foreground == color::unchanged && background == color::unchanged)
+      if (foreground == -1 && background == -1)
       {
         SetConsoleTextAttribute(hTerminal, defaultAttributes);
         return;
@@ -83,13 +70,13 @@ namespace termcolor
       CONSOLE_SCREEN_BUFFER_INFO info;
       if (!GetConsoleScreenBufferInfo(hTerminal, &info)) return;
 
-      if (foreground != color::unchanged)
+      if (foreground != -1)
       {
         info.wAttributes &= ~(info.wAttributes & 0x0F);
         info.wAttributes |= static_cast<WORD>(foreground);
       }
 
-      if (background != color::unchanged)
+      if (background != -1)
       {
         info.wAttributes &= ~(info.wAttributes & 0xF0);
         info.wAttributes |= static_cast<WORD>(background);
@@ -102,103 +89,103 @@ namespace termcolor
 
   inline std::ostream& reset(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::unchanged);
+    _internal::change_console_attributes(stream, -1);
     return stream;
   }
 
   inline std::ostream& grey(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::grey);
+    _internal::change_console_attributes(stream, 0);
     return stream;
   }
 
   inline std::ostream& red(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::red);
+    _internal::change_console_attributes(stream, FOREGROUND_RED);
     return stream;
   }
 
   inline std::ostream& green(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::green);
+    _internal::change_console_attributes(stream, FOREGROUND_GREEN);
     return stream;
   }
 
   inline std::ostream& yellow(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::yellow);
+    _internal::change_console_attributes(stream, FOREGROUND_GREEN | FOREGROUND_RED);
     return stream;
   }
 
   inline std::ostream& blue(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::blue);
+    _internal::change_console_attributes(stream, FOREGROUND_BLUE);
     return stream;
   }
 
   inline std::ostream& magenta(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::magenta);
+    _internal::change_console_attributes(stream, FOREGROUND_BLUE | FOREGROUND_RED);
     return stream;
   }
 
   inline std::ostream& cyan(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::cyan);
+    _internal::change_console_attributes(stream, FOREGROUND_BLUE | FOREGROUND_GREEN);
     return stream;
   }
 
   inline std::ostream& white(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::white);
+    _internal::change_console_attributes(stream, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
     return stream;
   }
 
   inline std::ostream& on_grey(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::grey);
+    _internal::change_console_attributes(stream, -1, 0);
     return stream;
   }
 
   inline std::ostream& on_red(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::red);
+    _internal::change_console_attributes(stream, -1, BACKGROUND_RED);
     return stream;
   }
 
   inline std::ostream& on_green(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::green);
+    _internal::change_console_attributes(stream, -1, BACKGROUND_GREEN);
     return stream;
   }
 
   inline std::ostream& on_yellow(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::yellow);
+    _internal::change_console_attributes(stream, -1, BACKGROUND_GREEN | BACKGROUND_RED);
     return stream;
   }
 
   inline std::ostream& on_blue(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::blue);
+    _internal::change_console_attributes(stream, -1, BACKGROUND_BLUE);
     return stream;
   }
 
   inline std::ostream& on_magenta(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::magenta);
+    _internal::change_console_attributes(stream, -1, BACKGROUND_BLUE | BACKGROUND_RED);
     return stream;
   }
 
   inline std::ostream& on_cyan(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::cyan);
+    _internal::change_console_attributes(stream, -1, BACKGROUND_BLUE | BACKGROUND_GREEN);
     return stream;
   }
 
   inline std::ostream& on_white(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, color::unchanged, color::white);
+    _internal::change_console_attributes(stream, -1, BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED);
     return stream;
   }
 
