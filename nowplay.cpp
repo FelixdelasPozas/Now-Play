@@ -30,6 +30,7 @@
 #include <chrono>
 
 // Project
+#include "termcolor.h"
 #include "version.h"
 
 const std::string SEPARATOR = "/";
@@ -37,6 +38,7 @@ const std::string SEPARATOR = "/";
 //-----------------------------------------------------------------------------
 void banner()
 {
+  std::cout << termcolor::reset;
   std::cout << "NowPlay v1.1 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
 }
 
@@ -134,7 +136,7 @@ void playFiles(std::vector<std::string> &files)
   auto playFile = [](const std::string &f)
   {
     const auto pos = f.rfind(SEPARATOR);
-    std::cout << f.substr(pos+1) << std::endl;
+    std::cout << termcolor::grey << termcolor::on_white << f.substr(pos+1) << termcolor::reset;
 
     const bool isVideoFile = f.substr(f.length() -3).compare("mp4") == 0;
 
@@ -142,6 +144,8 @@ void playFiles(std::vector<std::string> &files)
 
     const auto command = std::string("echo off & castnow \"") + f + "\"" +  subtitleParams + " --quiet";
     system(command.c_str());
+
+    std::cout << "\r" << f.substr(pos+1) << std::endl;
   };
 
   std::for_each(files.cbegin(), files.cend(), playFile);
@@ -176,7 +180,7 @@ int main(int argc, char *argv[])
 
       const auto selectedPath = validPaths.at(roll-1);
 
-      std::cout << "Selected: " << selectedPath << std::endl;
+      std::cout << "Selected: " << termcolor::grey << termcolor::on_white << selectedPath << termcolor::reset << std::endl;
 
       directory += SEPARATOR + selectedPath;
 
