@@ -12,10 +12,10 @@ BEGIN
     VALUE "CompanyName", "Felix de las Pozas Alvarez"
     VALUE "FileDescription", "NowPlay"
       VALUE "FileVersion", "@NOWPLAY_VERSION_MAJOR@.@NOWPLAY_VERSION_MINOR@.@NOWPLAY_VERSION_PATCH@"
-      VALUE "InternalName", "NOWPLAY"
+      VALUE "InternalName", "NowPlay"
       VALUE "LegalCopyright", "GNU Public License"
       VALUE "OriginalFilename", "NowPlay.exe"
-      VALUE "ProductName", "NOWPLAY"
+      VALUE "ProductName", "NowPlay"
       VALUE "ProductVersion", "@NOWPLAY_VERSION_MAJOR@.@NOWPLAY_VERSION_MINOR@.@NOWPLAY_VERSION_PATCH@"
     END
   END

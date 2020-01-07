@@ -42,7 +42,7 @@ namespace termcolor
       return false;
     }
 
-    inline void change_console_attributes(std::ostream &stream, int foreground, int background = -1)
+    inline void change_console_attributes(std::ostream &stream, int foreground = -1, int background = -1)
     {
       static WORD defaultAttributes = 0;
 
@@ -89,7 +89,7 @@ namespace termcolor
 
   inline std::ostream& reset(std::ostream &stream)
   {
-    _internal::change_console_attributes(stream, -1);
+    _internal::change_console_attributes(stream);
     return stream;
   }
 

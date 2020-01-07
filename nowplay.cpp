@@ -35,11 +35,35 @@
 
 const std::string SEPARATOR = "/";
 
+using FileInformation = std::pair<std::string, int64_t>;
+
 //-----------------------------------------------------------------------------
 void banner()
 {
   std::cout << termcolor::reset;
-  std::cout << "NowPlay v1.1 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
+  std::cout << "NowPlay v1.2 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
+}
+
+//-----------------------------------------------------------------------------
+void reportError(const std::string &entryName)
+{
+  LPVOID lpMsgBuf;
+  LPVOID lpDisplayBuf;
+  DWORD dw = GetLastError();
+
+  FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL,
+                dw,
+                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (LPTSTR) &lpMsgBuf,
+                0, NULL );
+
+  // Display the error message and exit the process
+  lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, (lstrlen((LPCTSTR)lpMsgBuf) + 40) * sizeof(TCHAR));
+  std::cout << "Failed to get file attributes of: " << entryName << ". Error " << dw << ". Message: " <<  (LPCTSTR)lpMsgBuf << std::endl;
+
+  LocalFree(lpMsgBuf);
+  LocalFree(lpDisplayBuf);
 }
 
 //-----------------------------------------------------------------------------
@@ -72,9 +96,9 @@ std::vector<std::string> getSubdirectories(DIR *dir)
 }
 
 //-----------------------------------------------------------------------------
-std::vector<std::string> getPlayableFiles(DIR *dir)
+std::vector<FileInformation> getPlayableFiles(DIR *dir)
 {
-  std::vector<std::string> files;
+  std::vector<FileInformation> files;
 
   if(dir != nullptr)
   {
@@ -90,37 +114,30 @@ std::vector<std::string> getPlayableFiles(DIR *dir)
       if(entry.compare(".") == 0 || entry.compare("..") == 0) continue;
 
       const auto entryName = directory + SEPARATOR + entry;
-      const auto fileat = GetFileAttributesA(entryName.c_str());
-
-      if(fileat == INVALID_FILE_ATTRIBUTES)
+      _WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+      if(!GetFileAttributesExA(entryName.c_str(), GET_FILEEX_INFO_LEVELS::GetFileExInfoStandard, &fileInfo))
       {
-        LPVOID lpMsgBuf;
-        LPVOID lpDisplayBuf;
-        DWORD dw = GetLastError();
-
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                      NULL,
-                      dw,
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                      (LPTSTR) &lpMsgBuf,
-                      0, NULL );
-
-        // Display the error message and exit the process
-        lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, (lstrlen((LPCTSTR)lpMsgBuf) + 40) * sizeof(TCHAR));
-        std::cout << "Failed to get file attributes with error " << dw << ". Message: " <<  (LPCTSTR)lpMsgBuf << std::endl;
-        std::cout << "Filename: " << entryName << std::endl;
-
-        LocalFree(lpMsgBuf);
-        LocalFree(lpDisplayBuf);
-        std::exit(1);
+        std::cout << "Unable to get information of: " << entryName << std::endl;
+        reportError(entryName);
+        continue;
       }
 
-      const bool isMusicFile = entry.substr(entry.length() -3).compare("mp3") == 0;
-      const bool isVideoFile = entry.substr(entry.length() -3).compare("mp4") == 0;
-
-      if(!(fileat & FILE_ATTRIBUTE_DIRECTORY) && (isMusicFile || isVideoFile))
+      if(fileInfo.dwFileAttributes == INVALID_FILE_ATTRIBUTES)
       {
-        files.push_back(std::move(entryName));
+        std::cout << "Invalid file attributes for: " << entryName << std::endl;
+        reportError(entryName);
+        continue;
+      }
+
+      const bool isMusicFile = entry.substr(entry.length() - 3).compare("mp3") == 0;
+      const bool isVideoFile = entry.substr(entry.length() - 3).compare("mp4") == 0;
+
+      if(!(fileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && (isMusicFile || isVideoFile))
+      {
+        int64_t size = fileInfo.nFileSizeHigh;
+        size = (size << 32) | fileInfo.nFileSizeLow;
+
+        files.emplace_back(entryName, size);
       }
     }
   }
@@ -129,23 +146,24 @@ std::vector<std::string> getPlayableFiles(DIR *dir)
 }
 
 //-----------------------------------------------------------------------------
-void playFiles(std::vector<std::string> &files)
+void playFiles(std::vector<FileInformation> &files)
 {
-  std::sort(files.begin(), files.end());
+  std::sort(files.begin(), files.end(), [](const FileInformation &lhs, const FileInformation &rhs) { return lhs.first < rhs.first; });
 
-  auto playFile = [](const std::string &f)
+  auto playFile = [](const FileInformation &f)
   {
-    const auto pos = f.rfind(SEPARATOR);
-    std::cout << termcolor::grey << termcolor::on_white << f.substr(pos+1) << termcolor::reset;
+    const auto &filename = f.first;
+    const auto pos = filename.rfind(SEPARATOR);
+    std::cout << termcolor::grey << termcolor::on_white << filename.substr(pos+1) << termcolor::reset;
 
-    const bool isVideoFile = f.substr(f.length() -3).compare("mp4") == 0;
+    const bool isVideoFile = filename.substr(filename.length() -3).compare("mp4") == 0;
 
     const std::string subtitleParams = isVideoFile ? " --subtitle-scale 1.3 ":"";
 
-    const auto command = std::string("echo off & castnow \"") + f + "\"" +  subtitleParams + " --quiet";
+    const auto command = std::string("echo off & castnow \"") + filename + "\"" +  subtitleParams + " --quiet";
     system(command.c_str());
 
-    std::cout << "\r" << f.substr(pos+1) << std::endl;
+    std::cout << "\r" << filename.substr(pos+1) << std::endl;
   };
 
   std::for_each(files.cbegin(), files.cend(), playFile);
@@ -192,8 +210,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-      std::cout << std::endl;
-      rewinddir(dir);
+      std::cout << "\r" << "Base directory: " << termcolor::grey << termcolor::on_white << directory << termcolor::reset << std::endl;
     }
 
     auto files = getPlayableFiles(dir);
