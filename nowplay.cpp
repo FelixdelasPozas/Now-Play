@@ -33,9 +33,16 @@
 #include "termcolor.h"
 #include "version.h"
 
+// Boost
+#include <boost/program_options.hpp>
+
 const std::string SEPARATOR = "/";
 
+const unsigned long long MEGABYTE = 1024*1024;
+
 using FileInformation = std::pair<std::string, int64_t>;
+
+using namespace boost;
 
 //-----------------------------------------------------------------------------
 void banner()
@@ -60,39 +67,10 @@ void reportError(const std::string &entryName)
 
   // Display the error message and exit the process
   lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT, (lstrlen((LPCTSTR)lpMsgBuf) + 40) * sizeof(TCHAR));
-  std::cout << "Failed to get file attributes of: " << entryName << ". Error " << dw << ". Message: " <<  (LPCTSTR)lpMsgBuf << std::endl;
+  std::cout << "ERROR: Failed to get file attributes of: " << entryName << ". Error " << dw << ". Message: " <<  (LPCTSTR)lpMsgBuf << std::endl;
 
   LocalFree(lpMsgBuf);
   LocalFree(lpDisplayBuf);
-}
-
-//-----------------------------------------------------------------------------
-std::vector<std::string> getSubdirectories(DIR *dir)
-{
-  std::vector<std::string> directories;
-
-  if(dir != nullptr)
-  {
-    rewinddir(dir);
-
-    struct dirent *ent = nullptr;
-    while ((ent = readdir(dir)) != nullptr)
-    {
-      const std::string entry(ent->d_name);
-      if(entry.compare(".") == 0 || entry.compare("..") == 0) continue;
-
-      const auto fileat = GetFileAttributesA(ent->d_name);
-
-      if(fileat == INVALID_FILE_ATTRIBUTES) continue;
-
-      if(fileat & FILE_ATTRIBUTE_DIRECTORY)
-      {
-        directories.push_back(std::move(entry));
-      }
-    }
-  }
-
-  return directories;
 }
 
 //-----------------------------------------------------------------------------
@@ -117,14 +95,14 @@ std::vector<FileInformation> getPlayableFiles(DIR *dir)
       _WIN32_FILE_ATTRIBUTE_DATA fileInfo;
       if(!GetFileAttributesExA(entryName.c_str(), GET_FILEEX_INFO_LEVELS::GetFileExInfoStandard, &fileInfo))
       {
-        std::cout << "Unable to get information of: " << entryName << std::endl;
+        std::cout << "ERROR: Unable to get information of: " << entryName << std::endl;
         reportError(entryName);
         continue;
       }
 
       if(fileInfo.dwFileAttributes == INVALID_FILE_ATTRIBUTES)
       {
-        std::cout << "Invalid file attributes for: " << entryName << std::endl;
+        std::cout << "ERROR: Invalid file attributes for: " << entryName << std::endl;
         reportError(entryName);
         continue;
       }
@@ -143,6 +121,60 @@ std::vector<FileInformation> getPlayableFiles(DIR *dir)
   }
 
   return files;
+}
+
+//-----------------------------------------------------------------------------
+std::vector<FileInformation> getSubdirectories(DIR *dir, bool readSize = false)
+{
+  std::vector<FileInformation> directories;
+
+  if(dir != nullptr)
+  {
+    rewinddir(dir);
+
+    auto directory = std::string(dir->dd_name);
+    directory = directory.substr(0, directory.length()-2);
+
+    struct dirent *ent = nullptr;
+    while ((ent = readdir(dir)) != nullptr)
+    {
+      const std::string entry(ent->d_name);
+      if(entry.compare(".") == 0 || entry.compare("..") == 0) continue;
+
+      const auto fileat = GetFileAttributesA(ent->d_name);
+
+      if(fileat == INVALID_FILE_ATTRIBUTES) continue;
+
+      if(fileat & FILE_ATTRIBUTE_DIRECTORY)
+      {
+        unsigned long long size = 0L;
+
+        if(readSize)
+        {
+          const auto subDirName = directory + "/" + entry;
+          DIR *subDir = opendir(subDirName.c_str());
+          if (subDir == nullptr)
+          {
+            std::cout << "ERRROR: Unable to open subdirectory: " << subDirName << std::endl;
+            std::exit(EXIT_FAILURE);
+          }
+
+          const auto files = getPlayableFiles(subDir);
+          closedir(subDir);
+
+          auto addOp = [](const unsigned long long &s, const FileInformation &f)
+          {
+            return s + f.second;
+          };
+          size = std::accumulate(files.cbegin(), files.cend(), 0L, addOp);
+        }
+
+        directories.emplace_back(entry, size);
+      }
+    }
+  }
+
+  return directories;
 }
 
 //-----------------------------------------------------------------------------
@@ -174,6 +206,53 @@ int main(int argc, char *argv[])
 {
   banner();
 
+  unsigned long long size = 0L;
+  std::string destination;
+
+  program_options::options_description desc("Options");
+  desc.add_options()
+        ("help", "Print application help message.")
+        ("size,s", program_options::value<unsigned long long>(&size), "Total size of directories to copy to destination in megabytes.")
+        ("destination,d", program_options::value<std::string>(&destination), "Destination of the selected archives.");
+
+  program_options::variables_map vm;
+
+  try
+  {
+    program_options::store(program_options::parse_command_line(argc, argv, desc), vm);
+
+    if (vm.count("help"))
+    {
+      std::cout << desc << std::endl;
+      return EXIT_SUCCESS;
+    }
+  }
+  catch (program_options::error &e)
+  {
+    std::cerr << desc << std::endl;
+    std::cerr << "ERROR: " << e.what() << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if((size != 0L) || !destination.empty())
+  {
+    if(size == 0L)
+    {
+      std::cout << "ERROR: Invalid size option value. Both a valid size and a destination are required." << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    if(destination.empty())
+    {
+      std::cout << "ERROR: Invalid destination option value. Both a valid size and a destination are required." << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    size *= MEGABYTE;
+
+    /* TODO: select random directories and adjust to the max to the given size and copy the files to the destination. */
+  }
+
   DIR *dir = nullptr;
   if ((dir = opendir(".")) != nullptr)
   {
@@ -182,7 +261,7 @@ int main(int argc, char *argv[])
 
     std::cout << "Base directory: " << directory;
 
-    auto validPaths = getSubdirectories(dir);
+    auto validPaths = getSubdirectories(dir, false);
 
     if(!validPaths.empty())
     {
@@ -196,7 +275,7 @@ int main(int argc, char *argv[])
       std::uniform_int_distribution<int> distribution(1, validPaths.size());
       int roll = distribution(generator);
 
-      const auto selectedPath = validPaths.at(roll-1);
+      const auto selectedPath = validPaths.at(roll-1).first;
 
       std::cout << "Selected: " << termcolor::grey << termcolor::on_white << selectedPath << termcolor::reset << std::endl;
 
