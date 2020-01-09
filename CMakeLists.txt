@@ -7,7 +7,7 @@ cmake_minimum_required (VERSION 2.8.6)
 
 # Version Number
 set (NOWPLAY_VERSION_MAJOR 1)
-set (NOWPLAY_VERSION_MINOR 0)
+set (NOWPLAY_VERSION_MINOR 2)
 set (NOWPLAY_VERSION_PATCH 0)
 
 # Find includes in corresponding build directories
@@ -15,7 +15,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # Manually setting Boost because the CMake script is pure shit
 set(Boost_INCLUDE_DIR "D:/Desarrollo/Bibliotecas/boost_1_72_0")
-set(Boost_LIBRARIES "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/program_options/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_program_options-mgw82-mt-x64-1_72.a")
+set(Boost_LIBRARIES "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/program_options/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_program_options-mgw82-mt-x64-1_72.a"
+                    "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/filesystem/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_filesystem-mgw82-mt-x64-1_72.a")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated -std=c++17 -mwindows -m64 -static -mconsole")
 
