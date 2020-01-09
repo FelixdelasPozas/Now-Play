@@ -24,6 +24,8 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <io.h>
+#include <fcntl.h>
 
 // Project
 #include "termcolor.h"
@@ -44,8 +46,8 @@ using FileInformation = std::pair<filesystem::path, uint64_t>;
 //-----------------------------------------------------------------------------
 void banner()
 {
-  std::cout << termcolor::reset;
-  std::cout << "NowPlay v1.2 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
+  std::wcout << termcolor::reset;
+  std::wcout << "NowPlay v1.2 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
 }
 
 //-----------------------------------------------------------------------------
@@ -131,7 +133,7 @@ std::vector<FileInformation> getCopyDirectories(std::vector<FileInformation> &di
 {
   std::vector<FileInformation> selectedDirs;
 
-  std::cout << "Selecting from base for " << size << " bytes..." << std::endl;
+  std::wcout << "Selecting from base for " << size << " bytes..." << std::endl;
 
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine generator(seed);
@@ -180,7 +182,7 @@ std::vector<FileInformation> getCopyDirectories(std::vector<FileInformation> &di
     accumulator += f.second;
   };
   std::for_each(selectedDirs.cbegin(), selectedDirs.cend(), printInfo);
-  std::cout << "Total bytes " << accumulator << " in " << selectedDirs.size() << " directories, remaining to limit " << remaining << " bytes." << std::endl;
+  std::wcout << "Total bytes " << accumulator << " in " << selectedDirs.size() << " directories, remaining to limit " << remaining << " bytes." << std::endl;
 
   return selectedDirs;
 }
@@ -190,19 +192,19 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
 {
   if(dirs.empty())
   {
-    std::cout << "ERROR: No directories to copy." << std::endl;
+    std::wcout << "ERROR: No directories to copy." << std::endl;
     std::exit(EXIT_FAILURE);
   }
 
   if(to.empty() || !filesystem::exists(to) || !filesystem::is_directory(to))
   {
-    std::cout << "ERROR: No destination directory to copy to." << std::endl;
+    std::wcout << "ERROR: No destination directory to copy to." << std::endl;
     std::exit(EXIT_FAILURE);
   }
 
   filesystem::directory_entry toEntry(to);
 
-  std::cout << "Copying files... ";
+  std::wcout << "Copying files... ";
 
   system::error_code error;
 
@@ -220,18 +222,21 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
 
       if(error.value() != 0)
       {
-        std::cout << "ERROR: Cannot continue file copy. " << error.message() << std::endl;
+        std::wcout << "ERROR: Cannot continue file copy. " << error.message().c_str() << std::endl;
         std::exit(EXIT_FAILURE);
       }
     }
   }
 
-  std::cout << "done." << std::endl;
+  std::wcout << "done." << std::endl;
 }
 
 //-----------------------------------------------------------------------------
 int main(int argc, char *argv[])
 {
+  /** Puts the code page in UTF-8 but crashes in some cases. Better to output wrong characters and don't crash. */
+  // SetConsoleOutputCP(CP_UTF8);
+
   banner();
 
   unsigned long long size = 0L;
@@ -259,8 +264,8 @@ int main(int argc, char *argv[])
   }
   catch (program_options::error &e)
   {
-    std::cerr << desc << std::endl;
-    std::cerr << "ERROR: " << e.what() << std::endl;
+    std::cout << desc << std::endl;
+    std::cout << "ERROR: " << e.what() << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -279,19 +284,19 @@ int main(int argc, char *argv[])
 
     if(size == 0L)
     {
-      std::cout << "ERROR: Invalid size option value. Both a valid size and a destination are required." << std::endl;
+      std::wcout << "ERROR: Invalid size option value. Both a valid size and a destination are required." << std::endl;
       return EXIT_FAILURE;
     }
 
     if(destination.empty() || !filesystem::exists(destination))
     {
-      std::cout << "ERROR: Invalid destination option value. Both a valid size and a destination are required." << std::endl;
+      std::wcout << "ERROR: Invalid destination option value. Both a valid size and a destination are required." << std::endl;
       return EXIT_FAILURE;
     }
 
     if(validPaths.empty())
     {
-      std::cout << "ERROR: No subdirectories to select from." << std::endl;
+      std::wcout << "ERROR: No subdirectories to select from." << std::endl;
       return EXIT_FAILURE;
     }
 
@@ -303,7 +308,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-      std::cout << "ERROR: Unable to select directories for the given size: " << size << " Mb." << std::endl;
+      std::wcout << "ERROR: Unable to select directories for the given size: " << size << " Mb." << std::endl;
       return EXIT_FAILURE;
     }
 
@@ -313,7 +318,7 @@ int main(int argc, char *argv[])
   // Cast mode.
   if(!validPaths.empty())
   {
-    std::cout << " (" << validPaths.size() << " directories)" << std::endl;
+    std::wcout << " (" << validPaths.size() << " directories)" << std::endl;
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator(seed);
