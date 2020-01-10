@@ -43,11 +43,13 @@ using namespace boost;
 
 using FileInformation = std::pair<filesystem::path, uint64_t>;
 
+bool lessThan(const FileInformation &lhs, const FileInformation &rhs) { return lhs.first < rhs.first; }
+
 //-----------------------------------------------------------------------------
 void banner()
 {
-  std::wcout << termcolor::reset;
-  std::wcout << "NowPlay v1.2 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
+  std::cout << termcolor::reset;
+  std::cout << "NowPlay v1.3 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
 }
 
 //-----------------------------------------------------------------------------
@@ -109,11 +111,11 @@ std::vector<FileInformation> getSubdirectories(const std::string &directory, boo
 //-----------------------------------------------------------------------------
 void playFiles(std::vector<FileInformation> &files)
 {
-  std::sort(files.begin(), files.end(), [](const FileInformation &lhs, const FileInformation &rhs) { return lhs.first < rhs.first; });
+  std::sort(files.begin(), files.end(), lessThan);
 
   auto playFile = [](const FileInformation &f)
   {
-    std::wcout << termcolor::grey << termcolor::on_white << f.first.filename().wstring() << termcolor::reset;
+    std::cout << termcolor::grey << termcolor::on_white << f.first.filename().string() << termcolor::reset;
 
     const bool isVideoFile = f.first.extension() == ".mp4";
 
@@ -122,7 +124,7 @@ void playFiles(std::vector<FileInformation> &files)
     const auto command = std::string("echo off & castnow \"") + f.first.string() + "\"" +  subtitleParams + " --quiet";
     std::system(command.c_str());
 
-    std::wcout << "\r" << f.first.filename().wstring() << std::endl;
+    std::cout << "\r" << f.first.filename().string() << std::endl;
   };
 
   std::for_each(files.cbegin(), files.cend(), playFile);
@@ -133,7 +135,7 @@ std::vector<FileInformation> getCopyDirectories(std::vector<FileInformation> &di
 {
   std::vector<FileInformation> selectedDirs;
 
-  std::wcout << "Selecting from base for " << size << " bytes..." << std::endl;
+  std::cout << "Selecting from base for " << size << " bytes..." << std::endl;
 
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine generator(seed);
@@ -175,14 +177,16 @@ std::vector<FileInformation> getCopyDirectories(std::vector<FileInformation> &di
     }
   }
 
+  std::sort(selectedDirs.begin(), selectedDirs.end(), lessThan);
+
   unsigned long long accumulator = 0L;
   auto printInfo = [&accumulator](const FileInformation &f)
   {
-    std::wcout << "Selected: " << f.first.filename().wstring() << " (" << f.second << ")" << std::endl;
+    std::cout << "Selected: " << f.first.filename().string() << " (" << f.second << ")" << std::endl;
     accumulator += f.second;
   };
   std::for_each(selectedDirs.cbegin(), selectedDirs.cend(), printInfo);
-  std::wcout << "Total bytes " << accumulator << " in " << selectedDirs.size() << " directories, remaining to limit " << remaining << " bytes." << std::endl;
+  std::cout << "Total bytes " << accumulator << " in " << selectedDirs.size() << " directories, remaining to limit " << remaining << " bytes." << std::endl;
 
   return selectedDirs;
 }
@@ -192,51 +196,48 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
 {
   if(dirs.empty())
   {
-    std::wcout << "ERROR: No directories to copy." << std::endl;
+    std::cout << "ERROR: No directories to copy." << std::endl;
     std::exit(EXIT_FAILURE);
   }
 
   if(to.empty() || !filesystem::exists(to) || !filesystem::is_directory(to))
   {
-    std::wcout << "ERROR: No destination directory to copy to." << std::endl;
+    std::cout << "ERROR: No destination directory to copy to." << std::endl;
     std::exit(EXIT_FAILURE);
   }
 
   filesystem::directory_entry toEntry(to);
 
-  std::wcout << "Copying files... ";
+  std::cout << "Copying files... ";
 
   system::error_code error;
 
   for(auto dir: dirs)
   {
-    const auto newFolder = toEntry.path().wstring() + numeric_cast<wchar_t>('/') + dir.first.filename().wstring();
+    const auto newFolder = toEntry.path().string() + SEPARATOR + dir.first.filename().string();
     filesystem::create_directory(newFolder);
 
     const auto files = getPlayableFiles(dir.first.string());
 
     for(auto file: files)
     {
-      auto fullPath = newFolder + numeric_cast<wchar_t>('/') + file.first.filename().wstring();
+      auto fullPath = newFolder + SEPARATOR + file.first.filename().string();
       filesystem::copy_file(file.first, fullPath, error);
 
       if(error.value() != 0)
       {
-        std::wcout << "ERROR: Cannot continue file copy. " << error.message().c_str() << std::endl;
+        std::cout << "ERROR: Cannot continue file copy. " << error.message() << std::endl;
         std::exit(EXIT_FAILURE);
       }
     }
   }
 
-  std::wcout << "done." << std::endl;
+  std::cout << "done." << std::endl;
 }
 
 //-----------------------------------------------------------------------------
 int main(int argc, char *argv[])
 {
-  /** Puts the code page in UTF-8 but crashes in some cases. Better to output wrong characters and don't crash. */
-  // SetConsoleOutputCP(CP_UTF8);
-
   banner();
 
   unsigned long long size = 0L;
@@ -273,30 +274,30 @@ int main(int argc, char *argv[])
 
   auto directory = filesystem::current_path();
 
-  std::wcout << "Base directory: " << directory.wstring();
+  std::cout << "Base directory: " << directory.string();
 
   auto validPaths = getSubdirectories(directory.string(), isCopyMode);
 
   // Copy mode
   if(isCopyMode)
   {
-    std::wcout << std::endl;
+    std::cout << std::endl;
 
     if(size == 0L)
     {
-      std::wcout << "ERROR: Invalid size option value. Both a valid size and a destination are required." << std::endl;
+      std::cout << "ERROR: Invalid size option value. Both a valid size and a destination are required." << std::endl;
       return EXIT_FAILURE;
     }
 
     if(destination.empty() || !filesystem::exists(destination))
     {
-      std::wcout << "ERROR: Invalid destination option value. Both a valid size and a destination are required." << std::endl;
+      std::cout << "ERROR: Invalid destination option value. Both a valid size and a destination are required." << std::endl;
       return EXIT_FAILURE;
     }
 
     if(validPaths.empty())
     {
-      std::wcout << "ERROR: No subdirectories to select from." << std::endl;
+      std::cout << "ERROR: No subdirectories to select from." << std::endl;
       return EXIT_FAILURE;
     }
 
@@ -308,7 +309,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-      std::wcout << "ERROR: Unable to select directories for the given size: " << size << " Mb." << std::endl;
+      std::cout << "ERROR: Unable to select directories for the given size: " << size << " Mb." << std::endl;
       return EXIT_FAILURE;
     }
 
@@ -318,7 +319,7 @@ int main(int argc, char *argv[])
   // Cast mode.
   if(!validPaths.empty())
   {
-    std::wcout << " (" << validPaths.size() << " directories)" << std::endl;
+    std::cout << " (" << validPaths.size() << " directories)" << std::endl;
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator(seed);
@@ -328,11 +329,11 @@ int main(int argc, char *argv[])
 
     directory = validPaths.at(roll-1).first;
 
-    std::wcout << "Selected: " << termcolor::grey << termcolor::on_white << directory.filename().wstring() << termcolor::reset << std::endl;
+    std::cout << "Selected: " << termcolor::grey << termcolor::on_white << directory.filename().string() << termcolor::reset << std::endl;
   }
   else
   {
-    std::wcout << "\r" << "Base directory: " << termcolor::grey << termcolor::on_white << directory.wstring() << termcolor::reset << std::endl;
+    std::cout << "\r" << "Base directory: " << termcolor::grey << termcolor::on_white << directory.string() << termcolor::reset << std::endl;
   }
 
   auto files = getPlayableFiles(directory.string());
@@ -343,7 +344,7 @@ int main(int argc, char *argv[])
   }
   else
   {
-    std::wcout << "No music files found in directory: " << directory.wstring() << std::endl;
+    std::cout << "No music files found in directory: " << directory.string() << std::endl;
   }
 
   return EXIT_SUCCESS;
