@@ -34,6 +34,7 @@
 // Boost
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
 const char SEPARATOR = '/';
 
@@ -43,7 +44,29 @@ using namespace boost;
 
 using FileInformation = std::pair<filesystem::path, uint64_t>;
 
-bool lessThan(const FileInformation &lhs, const FileInformation &rhs) { return lhs.first < rhs.first; }
+//-----------------------------------------------------------------------------
+bool lessThan(const FileInformation &lhs, const FileInformation &rhs)
+{
+  return lhs.first < rhs.first;
+}
+
+//-----------------------------------------------------------------------------
+bool isAudioFile(const filesystem::path &path)
+{
+  auto extension = path.extension().string();
+  boost::algorithm::to_lower(extension);
+
+  return filesystem::is_regular_file(path) && extension.compare(".mp3") == 0;
+}
+
+//-----------------------------------------------------------------------------
+bool isVideoFile(const filesystem::path &path)
+{
+  auto extension = path.extension().string();
+  boost::algorithm::to_lower(extension);
+
+  return filesystem::is_regular_file(path) && (extension.compare(".mp4") == 0 || extension.compare(".mkv") == 0);
+}
 
 //-----------------------------------------------------------------------------
 void banner()
@@ -64,7 +87,7 @@ std::vector<FileInformation> getPlayableFiles(const std::string &directory)
       const auto name = it.path();
       if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
 
-      if(filesystem::is_regular_file(name) && (name.extension() == ".mp3" || name.extension() == ".mp4"))
+      if(isAudioFile(name) || isVideoFile(name))
       {
         files.emplace_back(name, filesystem::file_size(name));
       }
@@ -117,9 +140,7 @@ void playFiles(std::vector<FileInformation> &files)
   {
     std::cout << termcolor::grey << termcolor::on_white << f.first.filename().string() << termcolor::reset;
 
-    const bool isVideoFile = f.first.extension() == ".mp4";
-
-    const std::string subtitleParams = isVideoFile ? " --subtitle-scale 1.3 ":"";
+    const std::string subtitleParams = isVideoFile(f.first) ? " --subtitle-scale 1.3 ":"";
 
     const auto command = std::string("echo off & castnow \"") + f.first.string() + "\"" +  subtitleParams + " --quiet";
     std::system(command.c_str());
@@ -226,7 +247,9 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
 
       if(error.value() != 0)
       {
-        std::cout << "ERROR: Cannot continue file copy. " << error.message() << std::endl;
+        std::cout << "ERROR: Cannot continue file copy. " << std::endl;
+        std::cout << "ERROR: Error when copying file: " << file.first << std::endl;
+        std::cout << "ERROR: Message: " << error.message() << std::endl;
         std::exit(EXIT_FAILURE);
       }
     }
