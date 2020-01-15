@@ -26,6 +26,7 @@
 #include <chrono>
 #include <io.h>
 #include <fcntl.h>
+#include <process.h>
 
 // Project
 #include "termcolor.h"
@@ -44,6 +45,15 @@ using namespace boost;
 
 using FileInformation = std::pair<filesystem::path, uint64_t>;
 
+// NOTE: fixed location to avoid using an ini file or entering the path in the console.
+const std::string WINAMP_LOCATION = "D:\\Program Files (x86)\\Winamp\\winamp.exe";
+
+// Winamp WM_COMMAND & structs
+const int IPC_GETVERSION = 0;
+const int IPC_PLAYFILE   = 100;
+const int IPC_DELETE     = 101;
+const int IPC_STARTPLAY  = 102;
+
 //-----------------------------------------------------------------------------
 bool lessThan(const FileInformation &lhs, const FileInformation &rhs)
 {
@@ -60,6 +70,15 @@ bool isAudioFile(const filesystem::path &path)
 }
 
 //-----------------------------------------------------------------------------
+bool isPlaylistFile(const filesystem::path &path)
+{
+  auto extension = path.extension().string();
+  boost::algorithm::to_lower(extension);
+
+  return filesystem::is_regular_file(path) && (extension.compare(".m3u") == 0 || extension.compare(".m3u8") == 0);
+}
+
+//-----------------------------------------------------------------------------
 bool isVideoFile(const filesystem::path &path)
 {
   auto extension = path.extension().string();
@@ -72,7 +91,7 @@ bool isVideoFile(const filesystem::path &path)
 void banner()
 {
   std::cout << termcolor::reset;
-  std::cout << "NowPlay v1.3 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
+  std::cout << "NowPlay v1.5 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
 }
 
 //-----------------------------------------------------------------------------
@@ -87,7 +106,7 @@ std::vector<FileInformation> getPlayableFiles(const std::string &directory)
       const auto name = it.path();
       if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
 
-      if(isAudioFile(name) || isVideoFile(name))
+      if(isAudioFile(name) || isVideoFile(name) || isPlaylistFile(name))
       {
         files.emplace_back(name, filesystem::file_size(name));
       }
@@ -132,22 +151,80 @@ std::vector<FileInformation> getSubdirectories(const std::string &directory, boo
 }
 
 //-----------------------------------------------------------------------------
-void playFiles(std::vector<FileInformation> &files)
+void callWinamp(std::vector<FileInformation> &files)
+{
+  auto isPlaylist = [](const FileInformation &f){ return isPlaylistFile(f.first); };
+  auto it = std::find_if(files.cbegin(), files.cend(), isPlaylist);
+  if(it != files.cend())
+  {
+    const auto playlist = (*it).first.string();
+
+    HWND hwndWinamp = FindWindow("Winamp v1.x",nullptr);
+    if(hwndWinamp)
+    {
+      auto version = SendMessage(hwndWinamp, WM_USER, 0, IPC_GETVERSION);
+
+      std::cout << "Detected Winamp " << std::hex << ((version & 0x0000FF00) >> 12) << "." << (version & 0x000000FF);
+      std::cout << ", playing playlist." << std::endl;
+
+      // Clears current playlist.
+      SendMessage(hwndWinamp,WM_USER,0,IPC_DELETE);
+
+      COPYDATASTRUCT pl = {0};
+      pl.dwData = IPC_PLAYFILE;
+      pl.lpData = (void*)playlist.c_str();
+      pl.cbData = lstrlen((char*)pl.lpData)+1;
+
+      // Sends new playlist file.
+      SendMessage(hwndWinamp,WM_COPYDATA,0,(LPARAM)&pl);
+
+      // Starts play
+      SendMessage(hwndWinamp, WM_USER, 0, IPC_STARTPLAY);
+    }
+    else
+    {
+      const std::string adaptedPlaylist = std::string("\"") + playlist + "\"";
+      const char * argList[3] = { " ", adaptedPlaylist.c_str(), nullptr };
+
+      const auto result = _spawnv(_P_NOWAIT, WINAMP_LOCATION.c_str(), argList);
+      if(result == -1)
+      {
+        std::cout << "ERROR: Couldn't launch Winamp." << std::endl;
+        std::exit(EXIT_FAILURE);
+      }
+
+      std::cout << "Launched Winamp." << std::endl;
+    }
+  }
+  else
+  {
+    std::cout << "ERROR: No playlist found in directory: " << files.front().first.parent_path().string() << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+//-----------------------------------------------------------------------------
+void castFiles(std::vector<FileInformation> &files)
 {
   std::sort(files.begin(), files.end(), lessThan);
 
-  auto playFile = [](const FileInformation &f)
+  int i = 0;
+  auto isPlaylist = [&](const FileInformation &f){ return isPlaylistFile(f.first); };
+  const int total = files.size() - std::count_if(files.cbegin(), files.cend(), isPlaylist);
+
+  auto playFile = [&i, total](const FileInformation &f)
   {
-    std::cout << termcolor::grey << termcolor::on_white << f.first.filename().string() << termcolor::reset;
+    if(isPlaylistFile(f.first)) return;
+
+    std::cout << termcolor::grey << termcolor::on_white << f.first.filename().string() << termcolor::reset << " (" << ++i << "/" << total << ")";
 
     const std::string subtitleParams = isVideoFile(f.first) ? " --subtitle-scale 1.3 ":"";
 
     const auto command = std::string("echo off & castnow \"") + f.first.string() + "\"" +  subtitleParams + " --quiet";
     std::system(command.c_str());
 
-    std::cout << "\r" << f.first.filename().string() << std::endl;
+    std::cout << "\r" << f.first.filename().string() << "      " << std::endl;
   };
-
   std::for_each(files.cbegin(), files.cend(), playFile);
 }
 
@@ -229,19 +306,26 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
 
   filesystem::directory_entry toEntry(to);
 
-  std::cout << "Copying files... ";
-
   system::error_code error;
 
-  for(auto dir: dirs)
+  int i = 0;
+  const float progressUnit = 100.0/dirs.size();
+
+  auto copyDirectory = [&i, &toEntry, &error, &progressUnit](const FileInformation &dir)
   {
+    const auto progress = (i++)*progressUnit;
+
     const auto newFolder = toEntry.path().string() + SEPARATOR + dir.first.filename().string();
     filesystem::create_directory(newFolder);
 
     const auto files = getPlayableFiles(dir.first.string());
+    const auto currentUnit = progressUnit/files.size();
 
+    int j = 0;
     for(auto file: files)
     {
+      std::cout << "\r" << "Copying files... " << termcolor::grey << termcolor::on_white << static_cast<int>(progress + (j++)*currentUnit) << "%" << termcolor::reset;
+
       auto fullPath = newFolder + SEPARATOR + file.first.filename().string();
       filesystem::copy_file(file.first, fullPath, error);
 
@@ -253,9 +337,10 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
         std::exit(EXIT_FAILURE);
       }
     }
-  }
+  };
+  std::for_each(dirs.cbegin(), dirs.cend(), copyDirectory);
 
-  std::cout << "done." << std::endl;
+  std::cout << "\r" << "Copying done!        " << std::endl;
 }
 
 //-----------------------------------------------------------------------------
@@ -264,11 +349,13 @@ int main(int argc, char *argv[])
   banner();
 
   unsigned long long size = 0L;
+  bool playInWinamp = false;
   std::string destination;
 
   program_options::options_description desc("Options");
   desc.add_options()
         ("help,h", "Print application help message.")
+        ("winamp,w", "Play in WinAmp.")
         ("size,s", program_options::value<unsigned long long>(&size), "Total size of directories to copy to destination in megabytes.")
         ("destination,d", program_options::value<std::string>(&destination), "Destination of the selected archives.");
 
@@ -284,6 +371,8 @@ int main(int argc, char *argv[])
       return EXIT_SUCCESS;
     }
 
+    playInWinamp = vm.count("winamp");
+
     program_options::notify(vm);
   }
   catch (program_options::error &e)
@@ -294,6 +383,13 @@ int main(int argc, char *argv[])
   }
 
   auto isCopyMode = (size != 0L) || !destination.empty();
+
+  if(playInWinamp && isCopyMode)
+  {
+    std::cout << desc << std::endl;
+    std::cout << "ERROR: Invalid combination of parameters. Can't copy and play at the same time." << std::endl;
+    return EXIT_FAILURE;
+  }
 
   auto directory = filesystem::current_path();
 
@@ -363,7 +459,14 @@ int main(int argc, char *argv[])
 
   if(!files.empty())
   {
-    playFiles(files);
+    if(playInWinamp)
+    {
+      callWinamp(files);
+    }
+    else
+    {
+      castFiles(files);
+    }
   }
   else
   {
