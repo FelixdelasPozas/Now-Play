@@ -27,10 +27,12 @@
 #include <io.h>
 #include <fcntl.h>
 #include <process.h>
+#include <unistd.h>
 
 // Project
 #include "termcolor.h"
 #include "version.h"
+#include "winampapi.h"
 
 // Boost
 #include <boost/program_options.hpp>
@@ -44,15 +46,6 @@ const unsigned long long MEGABYTE = 1024*1024;
 using namespace boost;
 
 using FileInformation = std::pair<filesystem::path, uint64_t>;
-
-// NOTE: fixed location to avoid using an ini file or entering the path in the console.
-const std::string WINAMP_LOCATION = "D:\\Program Files (x86)\\Winamp\\winamp.exe";
-
-// Winamp WM_COMMAND & structs
-const int IPC_GETVERSION = 0;
-const int IPC_PLAYFILE   = 100;
-const int IPC_DELETE     = 101;
-const int IPC_STARTPLAY  = 102;
 
 //-----------------------------------------------------------------------------
 bool lessThan(const FileInformation &lhs, const FileInformation &rhs)
@@ -153,54 +146,44 @@ std::vector<FileInformation> getSubdirectories(const std::string &directory, boo
 //-----------------------------------------------------------------------------
 void callWinamp(std::vector<FileInformation> &files)
 {
+  auto handler = WinAmp::getWinAmpHandle();
+
+  if(!handler)
+  {
+    std::cout << "ERROR: Couldn't launch Winamp." << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+
+  WinAmp::deletePlaylist(handler);
+
   auto isPlaylist = [](const FileInformation &f){ return isPlaylistFile(f.first); };
   auto it = std::find_if(files.cbegin(), files.cend(), isPlaylist);
   if(it != files.cend())
   {
-    const auto playlist = (*it).first.string();
-
-    HWND hwndWinamp = FindWindow("Winamp v1.x",nullptr);
-    if(hwndWinamp)
-    {
-      auto version = SendMessage(hwndWinamp, WM_USER, 0, IPC_GETVERSION);
-
-      std::cout << "Detected Winamp " << std::hex << ((version & 0x0000FF00) >> 12) << "." << (version & 0x000000FF);
-      std::cout << ", playing playlist." << std::endl;
-
-      // Clears current playlist.
-      SendMessage(hwndWinamp,WM_USER,0,IPC_DELETE);
-
-      COPYDATASTRUCT pl = {0};
-      pl.dwData = IPC_PLAYFILE;
-      pl.lpData = (void*)playlist.c_str();
-      pl.cbData = lstrlen((char*)pl.lpData)+1;
-
-      // Sends new playlist file.
-      SendMessage(hwndWinamp,WM_COPYDATA,0,(LPARAM)&pl);
-
-      // Starts play
-      SendMessage(hwndWinamp, WM_USER, 0, IPC_STARTPLAY);
-    }
-    else
-    {
-      const std::string adaptedPlaylist = std::string("\"") + playlist + "\"";
-      const char * argList[3] = { " ", adaptedPlaylist.c_str(), nullptr };
-
-      const auto result = _spawnv(_P_NOWAIT, WINAMP_LOCATION.c_str(), argList);
-      if(result == -1)
-      {
-        std::cout << "ERROR: Couldn't launch Winamp." << std::endl;
-        std::exit(EXIT_FAILURE);
-      }
-
-      std::cout << "Launched Winamp." << std::endl;
-    }
+    WinAmp::addFile(handler, (*it).first.string());
   }
   else
   {
-    std::cout << "ERROR: No playlist found in directory: " << files.front().first.parent_path().string() << std::endl;
-    std::exit(EXIT_FAILURE);
+    auto checkAndAdd = [&](const FileInformation &f)
+    {
+      if(isAudioFile(f.first))
+      {
+        WinAmp::addFile(handler, f.first.string());
+        return true;
+      }
+
+      return false;
+    };
+    auto count = std::count_if(files.cbegin(), files.cend(), checkAndAdd);
+
+    if(count == 0)
+    {
+      std::cout << "ERROR: No files found in directory: " << files.front().first.parent_path().string() << std::endl;
+      std::exit(EXIT_FAILURE);
+    }
   }
+
+  WinAmp::startPlay(handler);
 }
 
 //-----------------------------------------------------------------------------
