@@ -18,43 +18,105 @@
  */
 
 // C++
-#include <iostream>
 #include <algorithm>
 #include <random>
 #include <vector>
 #include <string>
 #include <chrono>
-#include <io.h>
-#include <fcntl.h>
-#include <process.h>
-#include <unistd.h>
+#include <windef.h>
 
 // Project
-#include "termcolor.h"
+#include "NowPlay.h"
 #include "version.h"
 #include "winampapi.h"
 
+// Qt
+#include <QSettings>
+#include <QDir>
+#include <QFileDialog>
+#include <QMessageBox>
+
 // Boost
-#include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
-const char SEPARATOR = '/';
-
-const unsigned long long MEGABYTE = 1024*1024;
-
 using namespace boost;
 
-using FileInformation = std::pair<filesystem::path, uint64_t>;
+const QString GEOMETRY    = "Geometry";
+const QString FOLDER      = "Folder";
+const QString COPYSIZE    = "Copy Size";
+const QString COPYUNITS   = "Copy Units";
+const QString DESTINATION = "Destination Folder";
+const QString USEWINAMP   = "Play In Winamp";
 
 //-----------------------------------------------------------------------------
-bool lessThan(const FileInformation &lhs, const FileInformation &rhs)
+NowPlay::NowPlay()
+: QDialog(nullptr)
 {
-  return lhs.first < rhs.first;
+  setupUi(this);
+
+  loadSettings();
+
+  connectSignals();
+
+  m_tabWidget->setCurrentIndex(0);
 }
 
 //-----------------------------------------------------------------------------
-bool isAudioFile(const filesystem::path &path)
+NowPlay::~NowPlay()
+{
+  saveSettings();
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::loadSettings()
+{
+  QSettings settings("Felix de las Pozas Alvarez", "NowPlay");
+
+  if(settings.contains(GEOMETRY))
+  {
+    auto geometry = settings.value(GEOMETRY).toByteArray();
+    restoreGeometry(geometry);
+  }
+
+  const auto baseDir = settings.value(FOLDER, QApplication::applicationDirPath()).toString();
+
+  m_baseDir->setText(QDir::toNativeSeparators(baseDir));
+
+  const auto destinationDir = settings.value(DESTINATION, QApplication::applicationDirPath()).toString();
+
+  m_destinationDir->setText(QDir::toNativeSeparators(destinationDir));
+
+  const auto amount = settings.value(COPYSIZE, 0).toInt();
+
+  m_amount->setCurrentIndex(amount);
+
+  const auto units = settings.value(COPYUNITS, 0).toInt();
+
+  m_units->setCurrentIndex(units);
+
+  const auto useWinamp = settings.value(USEWINAMP, false).toBool();
+
+  m_winamp->setChecked(useWinamp);
+  m_castnow->setChecked(!useWinamp);
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::saveSettings()
+{
+  QSettings settings("Felix de las Pozas Alvarez", "NowPlay");
+
+  settings.setValue(GEOMETRY, saveGeometry());
+  settings.setValue(FOLDER, m_baseDir->text());
+  settings.setValue(DESTINATION, m_destinationDir->text());
+  settings.setValue(COPYSIZE, m_amount->currentIndex());
+  settings.setValue(COPYUNITS, m_units->currentIndex());
+  settings.setValue(USEWINAMP, m_winamp->isChecked());
+  settings.sync();
+}
+
+//-----------------------------------------------------------------------------
+bool NowPlay::isAudioFile(const filesystem::path &path)
 {
   auto extension = path.extension().string();
   boost::algorithm::to_lower(extension);
@@ -63,7 +125,7 @@ bool isAudioFile(const filesystem::path &path)
 }
 
 //-----------------------------------------------------------------------------
-bool isPlaylistFile(const filesystem::path &path)
+bool NowPlay::isPlaylistFile(const filesystem::path &path)
 {
   auto extension = path.extension().string();
   boost::algorithm::to_lower(extension);
@@ -72,7 +134,7 @@ bool isPlaylistFile(const filesystem::path &path)
 }
 
 //-----------------------------------------------------------------------------
-bool isVideoFile(const filesystem::path &path)
+bool NowPlay::isVideoFile(const filesystem::path &path)
 {
   auto extension = path.extension().string();
   boost::algorithm::to_lower(extension);
@@ -81,14 +143,7 @@ bool isVideoFile(const filesystem::path &path)
 }
 
 //-----------------------------------------------------------------------------
-void banner()
-{
-  std::cout << termcolor::reset;
-  std::cout << "NowPlay v1.5 (build " << BUILD_NUMBER << ", " << __DATE__ << " " << __TIME__ << ")" << std::endl;
-}
-
-//-----------------------------------------------------------------------------
-std::vector<FileInformation> getPlayableFiles(const std::string &directory)
+std::vector<NowPlay::FileInformation> NowPlay::getPlayableFiles(const std::string &directory)
 {
   std::vector<FileInformation> files;
 
@@ -110,7 +165,7 @@ std::vector<FileInformation> getPlayableFiles(const std::string &directory)
 }
 
 //-----------------------------------------------------------------------------
-std::vector<FileInformation> getSubdirectories(const std::string &directory, bool readSize = false)
+std::vector<NowPlay::FileInformation> NowPlay::getSubdirectories(const std::string &directory, bool readSize)
 {
   std::vector<FileInformation> directories;
 
@@ -144,19 +199,19 @@ std::vector<FileInformation> getSubdirectories(const std::string &directory, boo
 }
 
 //-----------------------------------------------------------------------------
-void callWinamp(std::vector<FileInformation> &files)
+void NowPlay::callWinamp(std::vector<FileInformation> &files)
 {
   auto handler = WinAmp::getWinAmpHandle();
 
   if(!handler)
   {
-    std::cout << "ERROR: Couldn't launch Winamp." << std::endl;
-    std::exit(EXIT_FAILURE);
+    showErrorMessage(tr("Unable to launch or contact WinAmp"));
+    return;
   }
 
   WinAmp::deletePlaylist(handler);
 
-  auto isPlaylist = [](const FileInformation &f){ return isPlaylistFile(f.first); };
+  auto isPlaylist = [this](const FileInformation &f){ return isPlaylistFile(f.first); };
   auto it = std::find_if(files.cbegin(), files.cend(), isPlaylist);
   if(it != files.cend())
   {
@@ -178,8 +233,9 @@ void callWinamp(std::vector<FileInformation> &files)
 
     if(count == 0)
     {
-      std::cout << "ERROR: No files found in directory: " << files.front().first.parent_path().string() << std::endl;
-      std::exit(EXIT_FAILURE);
+      const auto message = tr("No files found in directory ") + QString::fromStdString(files.front().first.parent_path().string());
+      showErrorMessage(message);
+      return;
     }
   }
 
@@ -187,36 +243,36 @@ void callWinamp(std::vector<FileInformation> &files)
 }
 
 //-----------------------------------------------------------------------------
-void castFiles(std::vector<FileInformation> &files)
+void NowPlay::castFiles(std::vector<FileInformation> &files)
 {
-  std::sort(files.begin(), files.end(), lessThan);
+  std::sort(files.begin(), files.end(), NowPlay::lessThan);
 
   int i = 0;
   auto isPlaylist = [&](const FileInformation &f){ return isPlaylistFile(f.first); };
   const int total = files.size() - std::count_if(files.cbegin(), files.cend(), isPlaylist);
 
-  auto playFile = [&i, total](const FileInformation &f)
+  auto playFile = [&i, total, this](const FileInformation &f)
   {
     if(isPlaylistFile(f.first)) return;
 
-    std::cout << termcolor::grey << termcolor::on_white << f.first.filename().string() << termcolor::reset << " (" << ++i << "/" << total << ")";
+    const auto message = QString::fromStdString(f.first.filename().string()) + " (" + QString::number(total) + "/" + QString::number(i) + ")";
+    log(message);
 
     const std::string subtitleParams = isVideoFile(f.first) ? " --subtitle-scale 1.3 ":"";
 
     const auto command = std::string("echo off & castnow \"") + f.first.string() + "\"" +  subtitleParams + " --quiet";
     std::system(command.c_str());
-
-    std::cout << "\r" << f.first.filename().string() << "      " << std::endl;
   };
   std::for_each(files.cbegin(), files.cend(), playFile);
 }
 
 //-----------------------------------------------------------------------------
-std::vector<FileInformation> getCopyDirectories(std::vector<FileInformation> &dirs, const unsigned long long size)
+std::vector<NowPlay::FileInformation> NowPlay::getCopyDirectories(std::vector<FileInformation> &dirs, const unsigned long long size)
 {
   std::vector<FileInformation> selectedDirs;
 
-  std::cout << "Selecting from base for " << size << " bytes..." << std::endl;
+  QString message = tr("Selecting from base for ") + QString::number(size) + " bytes...";
+  log(message);
 
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   std::default_random_engine generator(seed);
@@ -258,33 +314,37 @@ std::vector<FileInformation> getCopyDirectories(std::vector<FileInformation> &di
     }
   }
 
-  std::sort(selectedDirs.begin(), selectedDirs.end(), lessThan);
+  std::sort(selectedDirs.begin(), selectedDirs.end(), NowPlay::lessThan);
 
   unsigned long long accumulator = 0L;
-  auto printInfo = [&accumulator](const FileInformation &f)
+  auto printInfo = [&accumulator, this](const FileInformation &f)
   {
-    std::cout << "Selected: " << f.first.filename().string() << " (" << f.second << ")" << std::endl;
+    QString message = tr("Selected: ") + QString::fromStdString(f.first.filename().string()) + " (" + QString::number(f.second) + ")";
+    log(message);
+
     accumulator += f.second;
   };
   std::for_each(selectedDirs.cbegin(), selectedDirs.cend(), printInfo);
-  std::cout << "Total bytes " << accumulator << " in " << selectedDirs.size() << " directories, remaining to limit " << remaining << " bytes." << std::endl;
+
+  message = tr("Total bytes ") + QString::number(accumulator) + " in " + QString::number(selectedDirs.size()) + " directories, remaining to limit " + QString::number(remaining) + " bytes.";
+  log(message);
 
   return selectedDirs;
 }
 
 //-----------------------------------------------------------------------------
-void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
+void NowPlay::copyDirectories(const std::vector<FileInformation> &dirs, const std::string &to)
 {
   if(dirs.empty())
   {
-    std::cout << "ERROR: No directories to copy." << std::endl;
-    std::exit(EXIT_FAILURE);
+    showErrorMessage(tr("No directories to copy."));
+    return;
   }
 
   if(to.empty() || !filesystem::exists(to) || !filesystem::is_directory(to))
   {
-    std::cout << "ERROR: No destination directory to copy to." << std::endl;
-    std::exit(EXIT_FAILURE);
+    showErrorMessage(tr("No destination directory to copy to."));
+    return;
   }
 
   filesystem::directory_entry toEntry(to);
@@ -294,7 +354,9 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
   int i = 0;
   const float progressUnit = 100.0/dirs.size();
 
-  auto copyDirectory = [&i, &toEntry, &error, &progressUnit](const FileInformation &dir)
+
+
+  auto copyDirectory = [&i, &toEntry, &error, &progressUnit, this](const FileInformation &dir)
   {
     const auto progress = (i++)*progressUnit;
 
@@ -307,121 +369,112 @@ void copyDirectories(const std::vector<FileInformation> &dirs, std::string &to)
     int j = 0;
     for(auto file: files)
     {
-      std::cout << "\r" << "Copying files... " << termcolor::grey << termcolor::on_white << static_cast<int>(progress + (j++)*currentUnit) << "%" << termcolor::reset;
+      QString copyMessage = QString("\rCopying files... ") + QString::number(static_cast<int>(progress + (j++)*currentUnit)) + "%";
+      log(copyMessage);
 
       auto fullPath = newFolder + SEPARATOR + file.first.filename().string();
       filesystem::copy_file(file.first, fullPath, error);
 
       if(error.value() != 0)
       {
-        std::cout << "ERROR: Cannot continue file copy. " << std::endl;
-        std::cout << "ERROR: Error when copying file: " << file.first << std::endl;
-        std::cout << "ERROR: Message: " << error.message() << std::endl;
-        std::exit(EXIT_FAILURE);
+        const auto message = QString(tr("Error when copying file: ")) + QString::fromStdString(file.first.string());
+        const auto details = QString(tr("Details: ")) + QString::fromStdString(error.message());
+        const auto title   = QString(tr("Error while copying files"));
+        showErrorMessage(message, title, details);
+        return;
       }
     }
   };
   std::for_each(dirs.cbegin(), dirs.cend(), copyDirectory);
 
-  std::cout << "\r" << "Copying done!        " << std::endl;
+  log(tr("Copying done!"));
 }
 
 //-----------------------------------------------------------------------------
-int main(int argc, char *argv[])
+void NowPlay::connectSignals()
 {
-  banner();
+  connect(m_tabWidget, SIGNAL(currentChanged(int)), this, SLOT(onTabChanged(int)));
+  connect(m_browseBase, SIGNAL(pressed()), this, SLOT(browseDir()));
+  connect(m_browseDestination, SIGNAL(pressed()), this, SLOT(browseDir()));
+  connect(m_about, SIGNAL(pressed()), this, SLOT(onAboutButtonClicked()));
+  connect(m_play, SIGNAL(pressed()), this, SLOT(onPlayButtonClicked()));
+  connect(m_exit, SIGNAL(pressed()), this, SLOT(close()));
+}
 
-  unsigned long long size = 0L;
-  bool playInWinamp = false;
-  std::string destination;
+//-----------------------------------------------------------------------------
+void NowPlay::onTabChanged(int index)
+{
+  const QString text = (index == 0) ? "Now Play!" : "Now Copy!";
+  m_play->setText(text);
+}
 
-  program_options::options_description desc("Options");
-  desc.add_options()
-        ("help,h", "Print application help message.")
-        ("winamp,w", "Play in WinAmp.")
-        ("size,s", program_options::value<unsigned long long>(&size), "Total size of directories to copy to destination in megabytes.")
-        ("destination,d", program_options::value<std::string>(&destination), "Destination of the selected archives.");
+//-----------------------------------------------------------------------------
+void NowPlay::onPlayButtonClicked()
+{
+  const bool isCopyMode = m_tabWidget->currentIndex() == 1;
 
-  program_options::variables_map vm;
-
-  try
-  {
-    program_options::store(program_options::parse_command_line(argc, argv, desc), vm);
-
-    if (vm.count("help"))
-    {
-      std::cout << desc << std::endl;
-      return EXIT_SUCCESS;
-    }
-
-    playInWinamp = vm.count("winamp");
-
-    program_options::notify(vm);
-  }
-  catch (program_options::error &e)
-  {
-    std::cout << desc << std::endl;
-    std::cout << "ERROR: " << e.what() << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  auto isCopyMode = (size != 0L) || !destination.empty();
-
-  if(playInWinamp && isCopyMode)
-  {
-    std::cout << desc << std::endl;
-    std::cout << "ERROR: Invalid combination of parameters. Can't copy and play at the same time." << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  auto directory = filesystem::current_path();
-
-  std::cout << "Base directory: " << directory.string();
-
+  boost::filesystem::path directory = m_baseDir->text().toStdString();
   auto validPaths = getSubdirectories(directory.string(), isCopyMode);
 
   // Copy mode
   if(isCopyMode)
   {
-    std::cout << std::endl;
+    const auto destination = m_destinationDir->text().toStdString();
+    bool ok = false;
+    auto size = m_amount->currentText().toInt(&ok, 10);
 
-    if(size == 0L)
+    if(!ok)
     {
-      std::cout << "ERROR: Invalid size option value. Both a valid size and a destination are required." << std::endl;
-      return EXIT_FAILURE;
+      showErrorMessage(tr("Invalid size option value."));
+      return;
     }
 
-    if(destination.empty() || !filesystem::exists(destination))
+    if (destination.empty() || !filesystem::exists(destination))
     {
-      std::cout << "ERROR: Invalid destination option value. Both a valid size and a destination are required." << std::endl;
-      return EXIT_FAILURE;
+      showErrorMessage(tr("Invalid destination directory."));
+      return;
     }
 
-    if(validPaths.empty())
+    if (validPaths.empty())
     {
-      std::cout << "ERROR: No subdirectories to select from." << std::endl;
-      return EXIT_FAILURE;
+      showErrorMessage(tr("No sub-directories to select from."));
+      return;
     }
 
-    auto selectedDirs = getCopyDirectories(validPaths, size*MEGABYTE);
+    switch(m_units->currentIndex())
+    {
+      case 1:
+        size *= MEGABYTE;
+        break;
+      case 2:
+        size *= MEGABYTE * 1024;
+        break;
+      case 0:
+      default:
+        break;
+    }
 
-    if(!selectedDirs.empty())
+    auto selectedDirs = getCopyDirectories(validPaths, size);
+
+    if (!selectedDirs.empty())
     {
       copyDirectories(selectedDirs, destination);
     }
     else
     {
-      std::cout << "ERROR: Unable to select directories for the given size: " << size << " Mb." << std::endl;
-      return EXIT_FAILURE;
+      const auto message = tr("Unable to select directories for the given size: ") + QString::number(size) + " " + m_units->currentText() + ".";
+      showErrorMessage(message);
+      return;
     }
 
-    return EXIT_SUCCESS;
+    return;
   }
 
   // Cast mode.
   if(!validPaths.empty())
   {
-    std::cout << " (" << validPaths.size() << " directories)" << std::endl;
+    QString message = QString::fromStdString(directory.string()) + " has " + QString::number(validPaths.size()) + " directories.";
+    log(message);
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator(seed);
@@ -431,18 +484,20 @@ int main(int argc, char *argv[])
 
     directory = validPaths.at(roll-1).first;
 
-    std::cout << "Selected: " << termcolor::grey << termcolor::on_white << directory.filename().string() << termcolor::reset << std::endl;
+    message = QString("Selected: ") + QString::fromStdString(directory.filename().string());
+    log(message);
   }
   else
   {
-    std::cout << "\r" << "Base directory: " << termcolor::grey << termcolor::on_white << directory.string() << termcolor::reset << std::endl;
+    QString message = QString("Base directory: ") + QString::fromStdString(directory.string());
+    log(message);
   }
 
   auto files = getPlayableFiles(directory.string());
 
   if(!files.empty())
   {
-    if(playInWinamp)
+    if(m_winamp->isChecked())
     {
       callWinamp(files);
     }
@@ -453,8 +508,60 @@ int main(int argc, char *argv[])
   }
   else
   {
-    std::cout << "No music files found in directory: " << directory.string() << std::endl;
+    const auto message = QString("No music files found in directory: ") + QString::fromStdString(directory.string());
+    showErrorMessage(message);
+  }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::onAboutButtonClicked()
+{
+  // TODO
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::browseDir()
+{
+  auto origin = qobject_cast<QToolButton *>(sender());
+  QString title;
+  QString dir;
+  QLineEdit *widget = nullptr;
+
+  if(origin == m_browseBase)
+  {
+    title = tr("Select base directory");
+    dir = m_baseDir->text();
+    widget = m_baseDir;
+  }
+  else
+  {
+    title = tr("Select destination directory");
+    dir = m_destinationDir->text();
+    widget = m_destinationDir;
   }
 
-  return EXIT_SUCCESS;
+  auto newDirectory = QFileDialog::getExistingDirectory(this, title, dir);
+
+  if(!newDirectory.isEmpty()) widget->setText(newDirectory);
+
+  if(origin) origin->setDown(false);
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::showErrorMessage(const QString &message, const QString &title, const QString &details)
+{
+  QMessageBox msgBox(this);
+  msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
+  msgBox.setWindowTitle(title);
+  msgBox.setText(message);
+  if(!details.isEmpty()) msgBox.setDetailedText(details);
+  msgBox.setIcon(QMessageBox::Icon::Critical);
+  msgBox.exec();
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::log(const QString &message)
+{
+  m_log->appendPlainText(message);
+  m_log->appendPlainText("\n");
 }

@@ -1,0 +1,7 @@
+<RCC>
+  <qresource prefix="/NowPlay">
+	<file>buttons.ico</file>
+	<file>buttons.svg</file>
+	<file>folder.svg</file>
+  </qresource>
+</RCC>

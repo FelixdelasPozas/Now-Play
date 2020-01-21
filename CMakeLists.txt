@@ -17,8 +17,21 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(Boost_INCLUDE_DIR "D:/Desarrollo/Bibliotecas/boost_1_72_0")
 set(Boost_LIBRARIES "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/program_options/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_program_options-mgw82-mt-x64-1_72.a"
                     "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/filesystem/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_filesystem-mgw82-mt-x64-1_72.a")
+                    
+# Find the Qt 5 lib.
+find_package(Qt5 COMPONENTS Widgets)
+add_definitions(${Qt5Widgets_DEFINITIONS})            
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated -std=c++17 -mwindows -m64 -static -mconsole")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated -std=c++17 -mwindows -m64")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
+
+# Instruct CMake to run moc automatically when needed.
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+  set(CORE_EXTERNAL_LIBS ${CORE_EXTERNAL_LIBS} ${QT_QTTEST_LIBRARY})
+endif (CMAKE_BUILD_TYPE MATCHES Debug)
 
 configure_file("${PROJECT_SOURCE_DIR}/resources.rc.in" "${PROJECT_BINARY_DIR}/resources.rc")
 set(CORE_SOURCES ${CORE_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/resources.rc)
@@ -32,16 +45,28 @@ include_directories(
   ${CMAKE_BINARY_DIR}          # Generated .h files
   ${CMAKE_CURRENT_BINARY_DIR}  # For wrap/ui files
   ${Boost_INCLUDE_DIR}
+  ${Qt5Widgets_INCLUDE_DIRS}
   )
 
+qt5_add_resources(RESOURCES
+  rsc/resources.qrc
+)
+
 set(SOURCES
-  # project files
+  ${RESOURCES}
   ${CORE_SOURCES}
-  nowplay.cpp
+  main.cpp
+  NowPlay.cpp
+)
+
+set(LIBRARIES
+  ${Boost_LIBRARIES}
+  Qt5::Widgets
 )
 
 add_executable(nowplay ${SOURCES})
-target_link_libraries(nowplay ${Boost_LIBRARIES})
+target_link_libraries(nowplay ${LIBRARIES})
+qt5_use_modules(nowplay Widgets)
 
 add_custom_target(buildNumberDependency
                   COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/buildnumber.cmake")
