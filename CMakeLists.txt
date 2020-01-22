@@ -57,6 +57,8 @@ set(SOURCES
   ${CORE_SOURCES}
   main.cpp
   NowPlay.cpp
+  Utils.cpp
+  ProcessThread.cpp
 )
 
 set(LIBRARIES

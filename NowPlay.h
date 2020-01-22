@@ -22,6 +22,8 @@
 
 // Project
 #include <ui_NowPlayDialog.h>
+#include <Utils.h>
+#include <ProcessThread.h>
 
 // Qt
 #include <QDialog>
@@ -29,13 +31,27 @@
 // Boost
 #include <boost/filesystem.hpp>
 
+// C++
+#include <memory>
+
+/** \class NowPlay
+ * \brief Main application.
+ *
+ */
 class NowPlay
 : public QDialog
 , private Ui::NowPlayDialog
 {
     Q_OBJECT
   public:
+    /** \brief NowPlay class constructor.
+     *
+     */
     explicit NowPlay();
+
+    /** \brief NowPlay class virtual destructor.
+     *
+     */
     virtual ~NowPlay();
 
   private slots:
@@ -60,36 +76,65 @@ class NowPlay
      */
     void browseDir();
 
+    /** \brief Plays the next file on the list with Chromecast.
+     *
+     */
+    void castFile();
+
+  protected:
+    /** \brief Sends the key presses to the casting process if running.
+     * \param[in] e Key event.
+     *
+     */
+    virtual void keyPressEvent(QKeyEvent *e) override;
+
   private:
-    void loadSettings();
+    /** \brief Saves the application settings to the registry.
+     *
+     */
     void saveSettings();
+
+    /** \brief Loads the application settings from the registry.
+     *
+     */
+    void loadSettings();
+
+    /** \brief Helper method to connect UI signals to slots.
+     *
+     */
     void connectSignals();
 
+    /** \brief Shows an error message box on the screen.
+     * \param[in] message Error message.
+     * \param[in] title Message box title.
+     * \param[in] details Error message details.
+     *
+     */
     void showErrorMessage(const QString &message, const QString &title = "Error", const QString &details = QString());
 
-    const char SEPARATOR = '/';
+    /** \brief Plays the list of files with winamp.
+     *
+     */
+    void callWinamp();
 
-    const unsigned long long MEGABYTE = 1024*1024;
-
-    using FileInformation = std::pair<boost::filesystem::path, uint64_t>;
-
-    static bool lessThan(const NowPlay::FileInformation &lhs, const NowPlay::FileInformation &rhs)
-    {
-      return lhs.first < rhs.first;
-    }
-
-    bool isAudioFile(const boost::filesystem::path &path);
-    bool isPlaylistFile(const boost::filesystem::path &path);
-    bool isVideoFile(const boost::filesystem::path &path);
-
-    std::vector<FileInformation> getPlayableFiles(const std::string &directory);
-    std::vector<FileInformation> getSubdirectories(const std::string &directory, bool readSize = false);
-    void callWinamp(std::vector<FileInformation> &files);
-    void castFiles(std::vector<FileInformation> &files);
-    std::vector<FileInformation> getCopyDirectories(std::vector<FileInformation> &dirs, const unsigned long long size);
-    void copyDirectories(const std::vector<FileInformation> &dirs, const std::string &to);
-
+    /** \brief Writes the message to the log.
+     * \param[in] message Text message.
+     *
+     */
     void log(const QString &message);
+
+    /** \brief Returns true if the application can launch castnow application and false otherwise.
+     *
+     */
+    bool hasCastnowInstalled();
+
+    /** \brief Helper method that updates the GUI in constructor according to the application settings.
+     *
+     */
+    void updateGUI();
+
+    std::vector<Utils::FileInformation> m_files;  /** list of files being casted.                            */
+    std::shared_ptr<ProcessThread>      m_thread; /** casting thread or nullptr if no file is being casted.  */
 };
 
 

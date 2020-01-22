@@ -35,6 +35,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QProcess>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -49,9 +50,12 @@ const QString COPYUNITS   = "Copy Units";
 const QString DESTINATION = "Destination Folder";
 const QString USEWINAMP   = "Play In Winamp";
 
+const unsigned long long MEGABYTE = 1024*1024;
+
 //-----------------------------------------------------------------------------
 NowPlay::NowPlay()
-: QDialog(nullptr)
+: QDialog {nullptr}
+, m_thread{nullptr}
 {
   setupUi(this);
 
@@ -59,7 +63,7 @@ NowPlay::NowPlay()
 
   connectSignals();
 
-  m_tabWidget->setCurrentIndex(0);
+  updateGUI();
 }
 
 //-----------------------------------------------------------------------------
@@ -115,91 +119,9 @@ void NowPlay::saveSettings()
   settings.sync();
 }
 
-//-----------------------------------------------------------------------------
-bool NowPlay::isAudioFile(const filesystem::path &path)
-{
-  auto extension = path.extension().string();
-  boost::algorithm::to_lower(extension);
-
-  return filesystem::is_regular_file(path) && extension.compare(".mp3") == 0;
-}
 
 //-----------------------------------------------------------------------------
-bool NowPlay::isPlaylistFile(const filesystem::path &path)
-{
-  auto extension = path.extension().string();
-  boost::algorithm::to_lower(extension);
-
-  return filesystem::is_regular_file(path) && (extension.compare(".m3u") == 0 || extension.compare(".m3u8") == 0);
-}
-
-//-----------------------------------------------------------------------------
-bool NowPlay::isVideoFile(const filesystem::path &path)
-{
-  auto extension = path.extension().string();
-  boost::algorithm::to_lower(extension);
-
-  return filesystem::is_regular_file(path) && (extension.compare(".mp4") == 0 || extension.compare(".mkv") == 0);
-}
-
-//-----------------------------------------------------------------------------
-std::vector<NowPlay::FileInformation> NowPlay::getPlayableFiles(const std::string &directory)
-{
-  std::vector<FileInformation> files;
-
-  if(!directory.empty() && filesystem::is_directory(directory.c_str()))
-  {
-    for(filesystem::directory_entry &it: filesystem::directory_iterator(directory.c_str()))
-    {
-      const auto name = it.path();
-      if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
-
-      if(isAudioFile(name) || isVideoFile(name) || isPlaylistFile(name))
-      {
-        files.emplace_back(name, filesystem::file_size(name));
-      }
-    }
-  }
-
-  return files;
-}
-
-//-----------------------------------------------------------------------------
-std::vector<NowPlay::FileInformation> NowPlay::getSubdirectories(const std::string &directory, bool readSize)
-{
-  std::vector<FileInformation> directories;
-
-  if(!directory.empty() && filesystem::is_directory(directory.c_str()))
-  {
-    for(filesystem::directory_entry &it: filesystem::directory_iterator(directory.c_str()))
-    {
-      const auto name = it.path();
-      if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
-
-      if(filesystem::is_directory(it))
-      {
-        unsigned long long size = 0L;
-        if(readSize)
-        {
-          auto files = getPlayableFiles(it.path().string());
-
-          auto addOp = [](const unsigned long long &s, const FileInformation &f)
-          {
-            return s + f.second;
-          };
-          size = std::accumulate(files.cbegin(), files.cend(), 0L, addOp);
-        }
-
-        directories.emplace_back(it.path(), size);
-      }
-    }
-  }
-
-  return directories;
-}
-
-//-----------------------------------------------------------------------------
-void NowPlay::callWinamp(std::vector<FileInformation> &files)
+void NowPlay::callWinamp()
 {
   auto handler = WinAmp::getWinAmpHandle();
 
@@ -211,17 +133,17 @@ void NowPlay::callWinamp(std::vector<FileInformation> &files)
 
   WinAmp::deletePlaylist(handler);
 
-  auto isPlaylist = [this](const FileInformation &f){ return isPlaylistFile(f.first); };
-  auto it = std::find_if(files.cbegin(), files.cend(), isPlaylist);
-  if(it != files.cend())
+  auto isPlaylist = [this](const Utils::FileInformation &f){ return Utils::isPlaylistFile(f.first); };
+  auto it = std::find_if(m_files.cbegin(), m_files.cend(), isPlaylist);
+  if(it != m_files.cend())
   {
     WinAmp::addFile(handler, (*it).first.string());
   }
   else
   {
-    auto checkAndAdd = [&](const FileInformation &f)
+    auto checkAndAdd = [&](const Utils::FileInformation &f)
     {
-      if(isAudioFile(f.first))
+      if(Utils::isAudioFile(f.first))
       {
         WinAmp::addFile(handler, f.first.string());
         return true;
@@ -229,176 +151,70 @@ void NowPlay::callWinamp(std::vector<FileInformation> &files)
 
       return false;
     };
-    auto count = std::count_if(files.cbegin(), files.cend(), checkAndAdd);
+    auto count = std::count_if(m_files.cbegin(), m_files.cend(), checkAndAdd);
 
     if(count == 0)
     {
-      const auto message = tr("No files found in directory ") + QString::fromStdString(files.front().first.parent_path().string());
+      const auto message = tr("No files found in directory: ") + QString::fromStdString(m_files.front().first.parent_path().string());
       showErrorMessage(message);
       return;
     }
   }
 
+  m_files.clear();
+
   WinAmp::startPlay(handler);
 }
 
 //-----------------------------------------------------------------------------
-void NowPlay::castFiles(std::vector<FileInformation> &files)
+void NowPlay::castFile()
 {
-  std::sort(files.begin(), files.end(), NowPlay::lessThan);
-
-  int i = 0;
-  auto isPlaylist = [&](const FileInformation &f){ return isPlaylistFile(f.first); };
-  const int total = files.size() - std::count_if(files.cbegin(), files.cend(), isPlaylist);
-
-  auto playFile = [&i, total, this](const FileInformation &f)
+  if(m_thread)
   {
-    if(isPlaylistFile(f.first)) return;
+    disconnect(m_thread.get(), SIGNAL(finished()), this, SLOT(castFile()));
 
-    const auto message = QString::fromStdString(f.first.filename().string()) + " (" + QString::number(total) + "/" + QString::number(i) + ")";
-    log(message);
-
-    const std::string subtitleParams = isVideoFile(f.first) ? " --subtitle-scale 1.3 ":"";
-
-    const auto command = std::string("echo off & castnow \"") + f.first.string() + "\"" +  subtitleParams + " --quiet";
-    std::system(command.c_str());
-  };
-  std::for_each(files.cbegin(), files.cend(), playFile);
-}
-
-//-----------------------------------------------------------------------------
-std::vector<NowPlay::FileInformation> NowPlay::getCopyDirectories(std::vector<FileInformation> &dirs, const unsigned long long size)
-{
-  std::vector<FileInformation> selectedDirs;
-
-  QString message = tr("Selecting from base for ") + QString::number(size) + " bytes...";
-  log(message);
-
-  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-  std::default_random_engine generator(seed);
-
-  bool finished = false;
-  unsigned long long remaining = size;
-
-  while(!finished)
-  {
-    std::uniform_int_distribution<int> distribution(1, dirs.size());
-    const int roll = distribution(generator);
-    const auto selectedPath = dirs.at(roll-1);
-
-    if(selectedPath.second == 0)
+    if(!m_thread->isFinished())
     {
-      dirs.erase(dirs.begin() + roll-1);
-      continue;
+      m_thread->stop();
+      m_thread->thread()->wait(1);
     }
 
-    if(dirs.empty() || selectedPath.second > remaining)
-    {
-      finished = true;
-
-      auto computeMaximumFit = [&remaining, &selectedDirs](const FileInformation &f)
-      {
-        if(f.second < remaining)
-        {
-          remaining -= f.second;
-          selectedDirs.push_back(f);
-        }
-      };
-      std::for_each(dirs.begin(), dirs.end(), computeMaximumFit);
-    }
-    else
-    {
-      selectedDirs.push_back(selectedPath);
-      remaining -= selectedPath.second;
-      dirs.erase(dirs.begin() + roll-1);
-    }
+    m_thread = nullptr;
   }
 
-  std::sort(selectedDirs.begin(), selectedDirs.end(), NowPlay::lessThan);
-
-  unsigned long long accumulator = 0L;
-  auto printInfo = [&accumulator, this](const FileInformation &f)
+  auto file = std::find_if(m_files.begin(), m_files.end(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first); });
+  if(file != m_files.end())
   {
-    QString message = tr("Selected: ") + QString::fromStdString(f.first.filename().string()) + " (" + QString::number(f.second) + ")";
-    log(message);
+    const auto filename = (*file).first;
+    m_files.erase(file);
 
-    accumulator += f.second;
-  };
-  std::for_each(selectedDirs.cbegin(), selectedDirs.cend(), printInfo);
+    m_progress->setValue(m_progress->value() + 1);
 
-  message = tr("Total bytes ") + QString::number(accumulator) + " in " + QString::number(selectedDirs.size()) + " directories, remaining to limit " + QString::number(remaining) + " bytes.";
-  log(message);
+    log(QString::fromStdString(filename.filename().string()));
 
-  return selectedDirs;
-}
-
-//-----------------------------------------------------------------------------
-void NowPlay::copyDirectories(const std::vector<FileInformation> &dirs, const std::string &to)
-{
-  if(dirs.empty())
-  {
-    showErrorMessage(tr("No directories to copy."));
-    return;
+    m_thread = std::make_shared<ProcessThread>(filename.string(), this);
+    connect(m_thread.get(), SIGNAL(finished()), this, SLOT(castFile()));
+    m_thread->start();
   }
-
-  if(to.empty() || !filesystem::exists(to) || !filesystem::is_directory(to))
+  else
   {
-    showErrorMessage(tr("No destination directory to copy to."));
-    return;
+    m_files.clear();
+    m_tabWidget->setEnabled(true);
+
+    m_progress->setValue(0);
+    m_progress->setEnabled(false);
   }
-
-  filesystem::directory_entry toEntry(to);
-
-  system::error_code error;
-
-  int i = 0;
-  const float progressUnit = 100.0/dirs.size();
-
-
-
-  auto copyDirectory = [&i, &toEntry, &error, &progressUnit, this](const FileInformation &dir)
-  {
-    const auto progress = (i++)*progressUnit;
-
-    const auto newFolder = toEntry.path().string() + SEPARATOR + dir.first.filename().string();
-    filesystem::create_directory(newFolder);
-
-    const auto files = getPlayableFiles(dir.first.string());
-    const auto currentUnit = progressUnit/files.size();
-
-    int j = 0;
-    for(auto file: files)
-    {
-      QString copyMessage = QString("\rCopying files... ") + QString::number(static_cast<int>(progress + (j++)*currentUnit)) + "%";
-      log(copyMessage);
-
-      auto fullPath = newFolder + SEPARATOR + file.first.filename().string();
-      filesystem::copy_file(file.first, fullPath, error);
-
-      if(error.value() != 0)
-      {
-        const auto message = QString(tr("Error when copying file: ")) + QString::fromStdString(file.first.string());
-        const auto details = QString(tr("Details: ")) + QString::fromStdString(error.message());
-        const auto title   = QString(tr("Error while copying files"));
-        showErrorMessage(message, title, details);
-        return;
-      }
-    }
-  };
-  std::for_each(dirs.cbegin(), dirs.cend(), copyDirectory);
-
-  log(tr("Copying done!"));
 }
 
 //-----------------------------------------------------------------------------
 void NowPlay::connectSignals()
 {
-  connect(m_tabWidget, SIGNAL(currentChanged(int)), this, SLOT(onTabChanged(int)));
-  connect(m_browseBase, SIGNAL(pressed()), this, SLOT(browseDir()));
-  connect(m_browseDestination, SIGNAL(pressed()), this, SLOT(browseDir()));
-  connect(m_about, SIGNAL(pressed()), this, SLOT(onAboutButtonClicked()));
-  connect(m_play, SIGNAL(pressed()), this, SLOT(onPlayButtonClicked()));
-  connect(m_exit, SIGNAL(pressed()), this, SLOT(close()));
+  connect(m_tabWidget,         SIGNAL(currentChanged(int)), this, SLOT(onTabChanged(int)));
+  connect(m_browseBase,        SIGNAL(pressed()),           this, SLOT(browseDir()));
+  connect(m_browseDestination, SIGNAL(pressed()),           this, SLOT(browseDir()));
+  connect(m_about,             SIGNAL(pressed()),           this, SLOT(onAboutButtonClicked()));
+  connect(m_play,              SIGNAL(pressed()),           this, SLOT(onPlayButtonClicked()));
+  connect(m_exit,              SIGNAL(pressed()),           this, SLOT(close()));
 }
 
 //-----------------------------------------------------------------------------
@@ -411,10 +227,22 @@ void NowPlay::onTabChanged(int index)
 //-----------------------------------------------------------------------------
 void NowPlay::onPlayButtonClicked()
 {
+  if(m_thread)
+  {
+    disconnect(m_thread.get(), SIGNAL(finished()), this, SLOT(castFile()));
+
+    m_thread->stop();
+    m_thread->thread()->wait(1);
+    m_thread = nullptr;
+
+    m_play->setText("Now Play!");
+    return;
+  }
+
   const bool isCopyMode = m_tabWidget->currentIndex() == 1;
 
   boost::filesystem::path directory = m_baseDir->text().toStdString();
-  auto validPaths = getSubdirectories(directory.string(), isCopyMode);
+  auto validPaths = Utils::getSubdirectories(directory.string(), isCopyMode);
 
   // Copy mode
   if(isCopyMode)
@@ -454,11 +282,61 @@ void NowPlay::onPlayButtonClicked()
         break;
     }
 
-    auto selectedDirs = getCopyDirectories(validPaths, size);
+    QString message = tr("Selecting from base for ") + QString::number(size) + " bytes...";
+    log(message);
+
+    auto selectedDirs = Utils::getCopyDirectories(validPaths, size);
+
+    unsigned long long accumulator = 0L;
+    auto printInfo = [&accumulator, this](const Utils::FileInformation &f)
+    {
+      QString message = tr("Selected: ") + QString::fromStdString(f.first.filename().string()) + " (" + QString::number(f.second) + ")";
+      log(message);
+
+      accumulator += f.second;
+    };
+    std::for_each(selectedDirs.cbegin(), selectedDirs.cend(), printInfo);
+
+    message = tr("Total bytes ") + QString::number(accumulator) + " in " + QString::number(selectedDirs.size()) + " directories, remaining to limit " + QString::number(size - accumulator) + " bytes.";
+    log(message);
 
     if (!selectedDirs.empty())
     {
-      copyDirectories(selectedDirs, destination);
+      if(destination.empty() || !filesystem::exists(destination) || !filesystem::is_directory(destination))
+      {
+        showErrorMessage(tr("No destination directory to copy to."));
+        return;
+      }
+
+      log(tr("Copying directories..."));
+      m_play->setEnabled(false);
+
+      QApplication::setOverrideCursor(Qt::WaitCursor);
+
+      int i = 0;
+      m_progress->setEnabled(true);
+      for(auto dir: selectedDirs)
+      {
+        m_progress->setValue((100*i)/selectedDirs.size());
+
+        if(!Utils::copyDirectory(dir.first.string(), destination))
+        {
+          const QString message = QString("Error while copying files of directory: ") + QString::fromStdString(dir.first.string());
+          QApplication::restoreOverrideCursor();
+          m_play->setEnabled(true);
+          showErrorMessage(message, tr("Copy error"));
+          return;
+        }
+
+        ++i;
+      }
+
+      QApplication::restoreOverrideCursor();
+
+      m_progress->setValue(100);
+      m_progress->setEnabled(false);
+
+      m_play->setEnabled(true);
     }
     else
     {
@@ -471,6 +349,8 @@ void NowPlay::onPlayButtonClicked()
   }
 
   // Cast mode.
+  m_play->setText("Stop");
+
   if(!validPaths.empty())
   {
     QString message = QString::fromStdString(directory.string()) + " has " + QString::number(validPaths.size()) + " directories.";
@@ -493,17 +373,25 @@ void NowPlay::onPlayButtonClicked()
     log(message);
   }
 
-  auto files = getPlayableFiles(directory.string());
+  m_files = Utils::getPlayableFiles(directory.string());
 
-  if(!files.empty())
+  if(!m_files.empty())
   {
     if(m_winamp->isChecked())
     {
-      callWinamp(files);
+      callWinamp();
     }
     else
     {
-      castFiles(files);
+      m_progress->setEnabled(true);
+      m_progress->setMinimum(0);
+      const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first); });
+      m_progress->setMaximum(count);
+      m_progress->setValue(0);
+
+      m_tabWidget->setEnabled(false);
+
+      castFile();
     }
   }
   else
@@ -563,5 +451,44 @@ void NowPlay::showErrorMessage(const QString &message, const QString &title, con
 void NowPlay::log(const QString &message)
 {
   m_log->appendPlainText(message);
-  m_log->appendPlainText("\n");
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::keyPressEvent(QKeyEvent *e)
+{
+  if(m_thread != nullptr)
+  {
+    e->accept();
+    m_thread->sendKeyEvent(e);
+  }
+  else
+  {
+    QDialog::keyPressEvent(e);
+  }
+}
+
+//-----------------------------------------------------------------------------
+bool NowPlay::hasCastnowInstalled()
+{
+  QProcess process(this);
+  process.start("C:/windows/system32/cmd.exe",QStringList()<<"/C"<<"castnow --help");
+  process.waitForStarted();
+  process.waitForFinished();
+
+  auto text = process.readAll();
+  process.close();
+
+  return text.contains("Usage: castnow");
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::updateGUI()
+{
+  m_tabWidget->setCurrentIndex(0);
+
+  if(!hasCastnowInstalled())
+  {
+    m_castnow->setEnabled(false);
+    m_winamp->setChecked(true);
+  }
 }

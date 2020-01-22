@@ -26,13 +26,14 @@
 #include <winbase.h>
 #include <windef.h>
 #include <winuser.h>
+#include <cstring>
 #include <iostream>
 #include <string>
 
 namespace WinAmp
 {
   // NOTE: fixed location to avoid using an ini file or entering the path in the console.
-  const std::string WINAMP_LOCATION = "D:\\Program Files (x86)\\Winamp\\winamp.exe";
+  std::string WINAMP_LOCATION = "D:\\Program Files (x86)\\Winamp\\winamp.exe";
 
   // Winamp WM_COMMAND & structs
   const int IPC_GETVERSION = 0;
@@ -49,10 +50,13 @@ namespace WinAmp
 
     if(!handler)
     {
-      const auto result = _spawnv(_P_NOWAIT, WINAMP_LOCATION.c_str(), nullptr);
-
-      if(result != -1)
+      STARTUPINFOA info = { sizeof(STARTUPINFOA) };
+      PROCESS_INFORMATION processInfo;
+      if (CreateProcessA(0, const_cast<char *>(WINAMP_LOCATION.c_str()), 0, 0, 0, DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, 0, 0, &info, &processInfo))
       {
+        CloseHandle(processInfo.hProcess);
+        CloseHandle(processInfo.hThread);
+
         int i = 0;
         while(!handler && i < 10)
         {
@@ -60,6 +64,20 @@ namespace WinAmp
           handler = FindWindow("Winamp v1.x",nullptr);
           ++i;
         }
+      }
+      else
+      {
+        auto error = GetLastError();
+
+        LPSTR messageBuffer = nullptr;
+        size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                     nullptr, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, nullptr);
+
+        std::string message(messageBuffer, size);
+
+        std::cout << "error code: " << error << " message: " << message << std::endl;
+
+        LocalFree(messageBuffer);
       }
     }
 
