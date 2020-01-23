@@ -22,8 +22,8 @@ set(Boost_LIBRARIES "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/program_
 find_package(Qt5 COMPONENTS Widgets)
 add_definitions(${Qt5Widgets_DEFINITIONS})            
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated -std=c++17 -mwindows -m64")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated -mwindows -m64")
 
 # Instruct CMake to run moc automatically when needed.
 set(CMAKE_AUTOMOC ON)
@@ -58,7 +58,7 @@ set(SOURCES
   main.cpp
   NowPlay.cpp
   Utils.cpp
-  ProcessThread.cpp
+  AboutDialog.cpp
 )
 
 set(LIBRARIES

@@ -33,7 +33,7 @@
 namespace WinAmp
 {
   // NOTE: fixed location to avoid using an ini file or entering the path in the console.
-  std::string WINAMP_LOCATION = "D:\\Program Files (x86)\\Winamp\\winamp.exe";
+  const std::string WINAMP_LOCATION = "D:\\Program Files (x86)\\Winamp\\winamp.exe";
 
   // Winamp WM_COMMAND & structs
   const int IPC_GETVERSION = 0;

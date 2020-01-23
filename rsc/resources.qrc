@@ -3,5 +3,7 @@
 	<file>buttons.ico</file>
 	<file>buttons.svg</file>
 	<file>folder.svg</file>
+	<file>boost.ico</file>
+	<file>qt.ico</file>
   </qresource>
 </RCC>
