@@ -23,16 +23,13 @@
 // Project
 #include <ui_NowPlayDialog.h>
 #include <Utils.h>
-#include <ProcessThread.h>
 
 // Qt
 #include <QDialog>
+#include <QProcess>
 
 // Boost
 #include <boost/filesystem.hpp>
-
-// C++
-#include <memory>
 
 /** \class NowPlay
  * \brief Main application.
@@ -61,7 +58,7 @@ class NowPlay
      */
     void onTabChanged(int index);
 
-    /** \brief Plays, casts or copies depeding on the context.
+    /** \brief Plays, casts or copies depending on the context.
      *
      */
     void onPlayButtonClicked();
@@ -81,7 +78,20 @@ class NowPlay
      */
     void castFile();
 
+    /** \brief Monitors the cast output to detect when it has finished.
+     *
+     */
+    void onOuttputAvailable();
+
+    /** \brief Updates the size label when the subtitle value changes.
+     * \param[in] value Size (subtitle value * 10).
+     *
+     */
+    void onSubtitleSizeChanged(int value);
+
   protected:
+    virtual bool event(QEvent *event) override;
+
     /** \brief Sends the key presses to the casting process if running.
      * \param[in] e Key event.
      *
@@ -123,18 +133,13 @@ class NowPlay
      */
     void log(const QString &message);
 
-    /** \brief Returns true if the application can launch castnow application and false otherwise.
-     *
-     */
-    bool hasCastnowInstalled();
-
     /** \brief Helper method that updates the GUI in constructor according to the application settings.
      *
      */
     void updateGUI();
 
-    std::vector<Utils::FileInformation> m_files;  /** list of files being casted.                            */
-    std::shared_ptr<ProcessThread>      m_thread; /** casting thread or nullptr if no file is being casted.  */
+    std::vector<Utils::FileInformation> m_files;   /** list of files being casted. */
+    QProcess                            m_process; /** casting process.            */
 };
 
 

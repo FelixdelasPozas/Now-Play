@@ -29,6 +29,7 @@
 #include "NowPlay.h"
 #include "version.h"
 #include "winampapi.h"
+#include "AboutDialog.h"
 
 // Qt
 #include <QSettings>
@@ -36,6 +37,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QProcess>
+#include <QStandardPaths>
+#include <QDebug>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -43,27 +46,30 @@
 
 using namespace boost;
 
-const QString GEOMETRY    = "Geometry";
-const QString FOLDER      = "Folder";
-const QString COPYSIZE    = "Copy Size";
-const QString COPYUNITS   = "Copy Units";
-const QString DESTINATION = "Destination Folder";
-const QString USEWINAMP   = "Play In Winamp";
+const QString GEOMETRY     = "Geometry";
+const QString FOLDER       = "Folder";
+const QString COPYSIZE     = "Copy Size";
+const QString COPYUNITS    = "Copy Units";
+const QString DESTINATION  = "Destination Folder";
+const QString USEWINAMP    = "Play In Winamp";
+const QString SUBTITLESIZE = "Subtitle Size";
 
 const unsigned long long MEGABYTE = 1024*1024;
 
+const QString CASTNOW_LOCATION = QString::fromWCharArray(L"C:/Users/Felix/AppData/Roaming/npm/castnow.cmd");
+
 //-----------------------------------------------------------------------------
 NowPlay::NowPlay()
-: QDialog {nullptr}
-, m_thread{nullptr}
+: QDialog  {nullptr}
+, m_process{this}
 {
   setupUi(this);
 
   loadSettings();
 
-  connectSignals();
-
   updateGUI();
+
+  connectSignals();
 }
 
 //-----------------------------------------------------------------------------
@@ -91,18 +97,23 @@ void NowPlay::loadSettings()
 
   m_destinationDir->setText(QDir::toNativeSeparators(destinationDir));
 
-  const auto amount = settings.value(COPYSIZE, 0).toInt();
+  const auto copyAmount = settings.value(COPYSIZE, 0).toInt();
 
-  m_amount->setCurrentIndex(amount);
+  m_amount->setCurrentIndex(copyAmount);
 
-  const auto units = settings.value(COPYUNITS, 0).toInt();
+  const auto copyUnits = settings.value(COPYUNITS, 0).toInt();
 
-  m_units->setCurrentIndex(units);
+  m_units->setCurrentIndex(copyUnits);
 
   const auto useWinamp = settings.value(USEWINAMP, false).toBool();
 
   m_winamp->setChecked(useWinamp);
   m_castnow->setChecked(!useWinamp);
+
+  const auto subtitleSize = settings.value(SUBTITLESIZE, 1.3).toDouble();
+
+  m_subtitleSizeSlider->setValue(subtitleSize * 10);
+  onSubtitleSizeChanged(subtitleSize * 10);
 }
 
 //-----------------------------------------------------------------------------
@@ -116,6 +127,7 @@ void NowPlay::saveSettings()
   settings.setValue(COPYSIZE, m_amount->currentIndex());
   settings.setValue(COPYUNITS, m_units->currentIndex());
   settings.setValue(USEWINAMP, m_winamp->isChecked());
+  settings.setValue(SUBTITLESIZE, static_cast<double>(m_subtitleSizeSlider->value()/10.));
   settings.sync();
 }
 
@@ -169,20 +181,20 @@ void NowPlay::callWinamp()
 //-----------------------------------------------------------------------------
 void NowPlay::castFile()
 {
-  if(m_thread)
+  if(m_process.state() == QProcess::ProcessState::Running)
   {
-    disconnect(m_thread.get(), SIGNAL(finished()), this, SLOT(castFile()));
+    m_process.kill();
+    m_files.clear();
+    m_tabWidget->setEnabled(true);
 
-    if(!m_thread->isFinished())
-    {
-      m_thread->stop();
-      m_thread->thread()->wait(1);
-    }
-
-    m_thread = nullptr;
+    m_progress->setValue(0);
+    m_progress->setEnabled(false);
+    m_play->setText("Now Play!");
+    return;
   }
 
-  auto file = std::find_if(m_files.begin(), m_files.end(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first); });
+  auto isValidFile = [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); };
+  auto file = std::find_if(m_files.begin(), m_files.end(), isValidFile);
   if(file != m_files.end())
   {
     const auto filename = (*file).first;
@@ -190,11 +202,18 @@ void NowPlay::castFile()
 
     m_progress->setValue(m_progress->value() + 1);
 
-    log(QString::fromStdString(filename.filename().string()));
+    log(QString::fromStdWString(filename.filename().wstring()));
 
-    m_thread = std::make_shared<ProcessThread>(filename.string(), this);
-    connect(m_thread.get(), SIGNAL(finished()), this, SLOT(castFile()));
-    m_thread->start();
+    QStringList arguments;
+    arguments << QDir::fromNativeSeparators(QString::fromStdWString(filename.wstring()));
+    if(Utils::isVideoFile(filename.string()))
+    {
+      arguments << "--subtitle-scale";
+      arguments << m_subtitleSizeLabel->text();
+    }
+
+    m_process.start(CASTNOW_LOCATION, arguments, QProcess::Unbuffered|QProcess::ReadWrite);
+    m_process.waitForStarted();
   }
   else
   {
@@ -203,18 +222,23 @@ void NowPlay::castFile()
 
     m_progress->setValue(0);
     m_progress->setEnabled(false);
+    m_play->setText("Now Play!");
   }
 }
 
 //-----------------------------------------------------------------------------
 void NowPlay::connectSignals()
 {
-  connect(m_tabWidget,         SIGNAL(currentChanged(int)), this, SLOT(onTabChanged(int)));
-  connect(m_browseBase,        SIGNAL(pressed()),           this, SLOT(browseDir()));
-  connect(m_browseDestination, SIGNAL(pressed()),           this, SLOT(browseDir()));
-  connect(m_about,             SIGNAL(pressed()),           this, SLOT(onAboutButtonClicked()));
-  connect(m_play,              SIGNAL(pressed()),           this, SLOT(onPlayButtonClicked()));
-  connect(m_exit,              SIGNAL(pressed()),           this, SLOT(close()));
+  connect(m_tabWidget,          SIGNAL(currentChanged(int)), this, SLOT(onTabChanged(int)));
+  connect(m_browseBase,         SIGNAL(pressed()),           this, SLOT(browseDir()));
+  connect(m_browseDestination,  SIGNAL(pressed()),           this, SLOT(browseDir()));
+  connect(m_about,              SIGNAL(pressed()),           this, SLOT(onAboutButtonClicked()));
+  connect(m_play,               SIGNAL(pressed()),           this, SLOT(onPlayButtonClicked()));
+  connect(m_exit,               SIGNAL(pressed()),           this, SLOT(close()));
+  connect(m_subtitleSizeSlider, SIGNAL(valueChanged(int)),   this, SLOT(onSubtitleSizeChanged(int)));
+
+  connect(&m_process, SIGNAL(readyReadStandardOutput()), this, SLOT(onOuttputAvailable()));
+  connect(&m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(castFile()));
 }
 
 //-----------------------------------------------------------------------------
@@ -227,14 +251,16 @@ void NowPlay::onTabChanged(int index)
 //-----------------------------------------------------------------------------
 void NowPlay::onPlayButtonClicked()
 {
-  if(m_thread)
+  if(m_process.state() == QProcess::ProcessState::Running)
   {
-    disconnect(m_thread.get(), SIGNAL(finished()), this, SLOT(castFile()));
+    m_process.putChar('s');
+    m_process.putChar('q');
+    m_process.kill();
+    m_files.clear();
+    m_tabWidget->setEnabled(true);
 
-    m_thread->stop();
-    m_thread->thread()->wait(1);
-    m_thread = nullptr;
-
+    m_progress->setValue(0);
+    m_progress->setEnabled(false);
     m_play->setText("Now Play!");
     return;
   }
@@ -385,7 +411,7 @@ void NowPlay::onPlayButtonClicked()
     {
       m_progress->setEnabled(true);
       m_progress->setMinimum(0);
-      const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first); });
+      const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
       m_progress->setMaximum(count);
       m_progress->setValue(0);
 
@@ -404,7 +430,8 @@ void NowPlay::onPlayButtonClicked()
 //-----------------------------------------------------------------------------
 void NowPlay::onAboutButtonClicked()
 {
-  // TODO
+  AboutDialog dialog(this);
+  dialog.exec();
 }
 
 //-----------------------------------------------------------------------------
@@ -456,10 +483,14 @@ void NowPlay::log(const QString &message)
 //-----------------------------------------------------------------------------
 void NowPlay::keyPressEvent(QKeyEvent *e)
 {
-  if(m_thread != nullptr)
+  if(m_process.state() == QProcess::ProcessState::Running)
   {
+    std::cout << "pressed " << e->key() << " or " << e->text().toLocal8Bit().constData() << " l " << e->text().length() << std::endl;
     e->accept();
-    m_thread->sendKeyEvent(e);
+
+    m_process.write(e->text().toLocal8Bit().constData(), e->text().length());
+    std::cout << m_process.bytesToWrite() << " " <<  m_process.bytesAvailable();
+    if(!m_process.waitForBytesWritten()) std::cout << "write wait fail" << std::endl;
   }
   else
   {
@@ -468,27 +499,40 @@ void NowPlay::keyPressEvent(QKeyEvent *e)
 }
 
 //-----------------------------------------------------------------------------
-bool NowPlay::hasCastnowInstalled()
-{
-  QProcess process(this);
-  process.start("C:/windows/system32/cmd.exe",QStringList()<<"/C"<<"castnow --help");
-  process.waitForStarted();
-  process.waitForFinished();
-
-  auto text = process.readAll();
-  process.close();
-
-  return text.contains("Usage: castnow");
-}
-
-//-----------------------------------------------------------------------------
 void NowPlay::updateGUI()
 {
   m_tabWidget->setCurrentIndex(0);
+}
 
-  if(!hasCastnowInstalled())
+//-----------------------------------------------------------------------------
+bool NowPlay::event(QEvent *event)
+{
+  if(event->type() == QEvent::KeyPress)
   {
-    m_castnow->setEnabled(false);
-    m_winamp->setChecked(true);
+    auto ke = static_cast<QKeyEvent *>(event);
+    keyPressEvent(ke);
+
+    std::cout << m_process.readAllStandardError().constData() << std::endl;
+    return true;
   }
+
+  return QDialog::event(event);
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::onOuttputAvailable()
+{
+  const auto data = m_process.readAll().toStdString();
+  const auto pos = data.find("Idle...");
+  if(std::string::npos != pos)
+  {
+    m_process.kill();
+    m_process.waitForFinished(-1);
+  }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::onSubtitleSizeChanged(int value)
+{
+  m_subtitleSizeLabel->setText(QString::number(static_cast<double>(value/10.), 'e', 2));
 }
