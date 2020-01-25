@@ -27,6 +27,8 @@
 // Qt
 #include <QDialog>
 #include <QProcess>
+#include <QSystemTrayIcon>
+#include <QWinTaskbarButton>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -53,6 +55,9 @@ class NowPlay
      *
      */
     virtual ~NowPlay();
+
+  signals:
+    void terminated();
 
   private slots:
     /** \brief Changes the play button text to copy or viceversa depending on the current tab.
@@ -102,14 +107,27 @@ class NowPlay
      */
     void playNext();
 
+    /** \brief Handles the icon tray activation.
+     * \param[in] reason reason for activation.
+     *
+     */
+    void onTrayIconActivated(QSystemTrayIcon::ActivationReason reason);
+
+    /** \brief Restores the main dialog when the user double-clicks the tray icon.
+     *
+     */
+    void onRestoreActionActivated();
+
   protected:
     virtual bool event(QEvent *event) override;
 
-    /** \brief Sends the key presses to the casting process if running.
-     * \param[in] e Key event.
-     *
-     */
     virtual void keyPressEvent(QKeyEvent *e) override;
+
+    virtual void changeEvent(QEvent *e) override;
+
+    virtual void closeEvent(QCloseEvent *e) override;
+
+    virtual void showEvent(QShowEvent *e) override;
 
   private:
     /** \brief Saves the application settings to the registry.
@@ -162,11 +180,18 @@ class NowPlay
      */
     void checkApplications();
 
-    std::vector<Utils::FileInformation> m_files;        /** list of files being casted.   */
-    QProcess                            m_process;      /** casting process.              */
-    QString                             m_winampPath;   /** WinAmp executable location.   */
-    QString                             m_smplayerPath; /** SMPlayer executable location. */
-    QString                             m_castnowPath;  /** Castnow script location.      */
+    /** \brief Helper method to setup the tray icon.
+     *
+     */
+    void setupTrayIcon();
+
+    std::vector<Utils::FileInformation> m_files;         /** list of files being casted.      */
+    QProcess                            m_process;       /** casting process.                 */
+    QString                             m_winampPath;    /** WinAmp executable location.      */
+    QString                             m_smplayerPath;  /** SMPlayer executable location.    */
+    QString                             m_castnowPath;   /** Castnow script location.         */
+    QSystemTrayIcon                    *m_icon;          /** application icon when minimized. */
+    QWinTaskbarButton                  *m_taskBarButton; /** taskbar progress widget.         */
 };
 
 

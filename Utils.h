@@ -60,14 +60,14 @@ namespace Utils
    * \param[in] directory Absolute path of directory to search for playable files.
    *
    */
-  std::vector<FileInformation> getPlayableFiles(const std::string &directory);
+  std::vector<FileInformation> getPlayableFiles(const boost::filesystem::path &directory);
 
   /** \brief Returns a list of directories of the given base directory.
    * \param[in] directory Absolute path of directory to search for sub-directories.
    * \param[in] readSize True to read the sizes of the directories and false otherwise.
    *
    */
-  std::vector<FileInformation> getSubdirectories(const std::string &directory, bool readSize = false);
+  std::vector<FileInformation> getSubdirectories(const boost::filesystem::path &directory, bool readSize = false);
 
   /** \brief Returns a random list of directories adjusted to the given size limit.
    * \param[in] dirs List of available directories.
@@ -81,7 +81,7 @@ namespace Utils
    * \param[in] to Destination directory.
    *
    */
-  bool copyDirectory(const std::string &from, const std::string &to);
+  bool copyDirectory(const boost::filesystem::path &from, const boost::filesystem::path &to);
 
   /** \brief Helper method to check if WinAmp location is valid.
    * \param[in] location WinAmp location on disk.

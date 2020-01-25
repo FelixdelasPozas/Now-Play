@@ -343,10 +343,13 @@ QGroupBox::title {
          <enum>QAbstractScrollArea::AdjustToContents</enum>
         </property>
         <property name="autoFormatting">
-         <set>QTextEdit::AutoAll</set>
+         <set>QTextEdit::AutoNone</set>
         </property>
         <property name="readOnly">
          <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>No files casted yet...</string>
         </property>
        </widget>
       </item>

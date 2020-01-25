@@ -41,6 +41,9 @@
 #include <QStandardPaths>
 #include <QKeyEvent>
 #include <QString>
+#include <QMenu>
+#include <QAction>
+#include <QWinTaskbarProgress>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -66,10 +69,13 @@ const unsigned long long MEGABYTE = 1024*1024;
 NowPlay::NowPlay()
 : QDialog  {nullptr}
 , m_process{this}
+, m_icon   {new QSystemTrayIcon(QIcon(":/NowPlay/buttons.svg"), this)}
 {
   setWindowFlags(Qt::WindowFlags() & Qt::Dialog & Qt::WindowMinimizeButtonHint & ~Qt::WindowContextHelpButtonHint);
 
   setupUi(this);
+
+  setupTrayIcon();
 
   loadSettings();
 
@@ -169,7 +175,7 @@ void NowPlay::callWinamp()
   auto it = std::find_if(m_files.cbegin(), m_files.cend(), isPlaylist);
   if(it != m_files.cend())
   {
-    WinAmp::addFile(handler, (*it).first.string());
+    WinAmp::addFile(handler, (*it).first.wstring());
   }
   else
   {
@@ -177,7 +183,7 @@ void NowPlay::callWinamp()
     {
       if(Utils::isAudioFile(f.first))
       {
-        WinAmp::addFile(handler, f.first.string());
+        WinAmp::addFile(handler, f.first.wstring());
         return true;
       }
 
@@ -187,7 +193,7 @@ void NowPlay::callWinamp()
 
     if(count == 0)
     {
-      const auto message = tr("No files found in directory: ") + QString::fromStdString(m_files.front().first.parent_path().string());
+      const auto message = tr("No files found in directory: ") + QString::fromStdWString(m_files.front().first.parent_path().wstring());
       showErrorMessage(message);
       return;
     }
@@ -229,6 +235,8 @@ void NowPlay::castFile()
     m_tabWidget->setEnabled(true);
 
     m_progress->setValue(0);
+    m_taskBarButton->progress()->setValue(0);
+    m_taskBarButton->progress()->setVisible(false);
     m_progress->setEnabled(false);
     m_play->setText("Now Play!");
     return;
@@ -244,6 +252,8 @@ void NowPlay::castFile()
     m_files.erase(file);
 
     m_progress->setValue(m_progress->value() + 1);
+    if(!m_taskBarButton->progress()->isVisible()) m_taskBarButton->progress()->setVisible(true);
+    m_taskBarButton->progress()->setValue(m_progress->value());
 
     log(QString::fromStdWString(filename.filename().wstring()));
 
@@ -257,6 +267,8 @@ void NowPlay::castFile()
 
     m_process.start(m_castnowPath, arguments, QProcess::Unbuffered|QProcess::ReadWrite);
     m_process.waitForStarted();
+
+    m_icon->showMessage(QString::fromStdWString(filename.parent_path().filename().c_str()), QString::fromStdWString(filename.c_str()), QIcon(":/NowPlay/buttons.svg"));
   }
   else
   {
@@ -265,6 +277,8 @@ void NowPlay::castFile()
 
     m_progress->setValue(0);
     m_progress->setEnabled(false);
+    m_taskBarButton->progress()->setValue(0);
+    m_taskBarButton->progress()->setVisible(false);
     m_play->setText("Now Play!");
   }
 }
@@ -284,6 +298,8 @@ void NowPlay::connectSignals()
 
   connect(&m_process, SIGNAL(readyReadStandardOutput()), this, SLOT(onOuttputAvailable()));
   connect(&m_process, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(castFile()));
+
+  connect(m_icon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(onTrayIconActivated(QSystemTrayIcon::ActivationReason)));
 }
 
 //-----------------------------------------------------------------------------
@@ -306,20 +322,23 @@ void NowPlay::onPlayButtonClicked()
 
     m_progress->setValue(0);
     m_progress->setEnabled(false);
+    m_taskBarButton->progress()->setValue(0);
     m_play->setText("Now Play!");
     m_next->setEnabled(false);
+    m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
+    m_icon->contextMenu()->actions().at(2)->setEnabled(false);
     return;
   }
 
   const bool isCopyMode = m_tabWidget->currentIndex() == 1;
 
-  boost::filesystem::path directory = m_baseDir->text().toStdString();
-  auto validPaths = Utils::getSubdirectories(directory.string(), isCopyMode);
+  boost::filesystem::path directory = m_baseDir->text().toStdWString();
+  auto validPaths = Utils::getSubdirectories(directory, isCopyMode);
 
   // Copy mode
   if(isCopyMode)
   {
-    const auto destination = m_destinationDir->text().toStdString();
+    const auto destination = m_destinationDir->text().toStdWString();
     bool ok = false;
     auto size = m_amount->currentText().toInt(&ok, 10);
 
@@ -362,7 +381,7 @@ void NowPlay::onPlayButtonClicked()
     unsigned long long accumulator = 0L;
     auto printInfo = [&accumulator, this](const Utils::FileInformation &f)
     {
-      QString message = tr("Selected: ") + QString::fromStdString(f.first.filename().string()) + " (" + QString::number(f.second) + ")";
+      QString message = tr("Selected: ") + QString::fromStdWString(f.first.filename().wstring()) + " (" + QString::number(f.second) + ")";
       log(message);
 
       accumulator += f.second;
@@ -390,10 +409,11 @@ void NowPlay::onPlayButtonClicked()
       for(auto dir: selectedDirs)
       {
         m_progress->setValue((100*i)/selectedDirs.size());
+        m_taskBarButton->progress()->setValue(m_progress->value());
 
         if(!Utils::copyDirectory(dir.first.string(), destination))
         {
-          const QString message = QString("Error while copying files of directory: ") + QString::fromStdString(dir.first.string());
+          const QString message = QString("Error while copying files of directory: ") + QString::fromStdWString(dir.first.wstring());
           QApplication::restoreOverrideCursor();
           m_play->setEnabled(true);
           showErrorMessage(message, tr("Copy error"));
@@ -407,6 +427,7 @@ void NowPlay::onPlayButtonClicked()
 
       m_progress->setValue(100);
       m_progress->setEnabled(false);
+      m_taskBarButton->progress()->setValue(100);
 
       m_play->setEnabled(true);
     }
@@ -423,7 +444,7 @@ void NowPlay::onPlayButtonClicked()
   // Play mode.
   if(!validPaths.empty())
   {
-    QString message = tr("<b>") + QString::fromStdString(directory.string()) + tr("</b> has ") + QString::number(validPaths.size()) + tr(" directories.");
+    QString message = tr("<b>") + QString::fromStdWString(directory.wstring()) + tr("</b> has ") + QString::number(validPaths.size()) + tr(" directories.");
     log(message);
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -434,16 +455,16 @@ void NowPlay::onPlayButtonClicked()
 
     directory = validPaths.at(roll-1).first;
 
-    message = QString("Selected: <b>") + QString::fromStdString(directory.filename().string()) + tr("</b>");
+    message = QString("Selected: <b>") + QString::fromStdWString(directory.filename().wstring()) + tr("</b>");
     log(message);
   }
   else
   {
-    QString message = QString("Base directory: <b>") + QString::fromStdString(directory.string()) + tr("</b>");
+    QString message = QString("Base directory: <b>") + QString::fromStdWString(directory.wstring()) + tr("</b>");
     log(message);
   }
 
-  m_files = Utils::getPlayableFiles(directory.string());
+  m_files = Utils::getPlayableFiles(directory);
 
   if(!m_files.empty())
   {
@@ -457,11 +478,15 @@ void NowPlay::onPlayButtonClicked()
       {
         m_play->setText("Stop");
         m_next->setEnabled(true);
+        m_icon->contextMenu()->actions().at(1)->setText("Stop");
+        m_icon->contextMenu()->actions().at(2)->setEnabled(true);
 
         m_progress->setEnabled(true);
-        m_progress->setMinimum(0);
         const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
+        m_progress->setMinimum(0);
         m_progress->setMaximum(count);
+        m_taskBarButton->progress()->setMinimum(0);
+        m_taskBarButton->progress()->setMinimum(count);
         m_progress->setValue(0);
 
         m_tabWidget->setEnabled(false);
@@ -476,7 +501,7 @@ void NowPlay::onPlayButtonClicked()
   }
   else
   {
-    const auto message = QString("No music files found in directory: ") + QString::fromStdString(directory.string());
+    const auto message = QString("No music files found in directory: ") + QString::fromStdWString(directory.wstring());
     showErrorMessage(message);
   }
 }
@@ -557,6 +582,8 @@ void NowPlay::updateGUI()
 {
   m_tabWidget->setCurrentIndex(0);
   m_next->setEnabled(false);
+  m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
+  m_icon->contextMenu()->actions().at(2)->setEnabled(false);
 }
 
 //-----------------------------------------------------------------------------
@@ -639,4 +666,98 @@ void NowPlay::onSettingsButtonClicked()
 
     checkApplications();
   }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::onTrayIconActivated(QSystemTrayIcon::ActivationReason reason)
+{
+  if(reason == QSystemTrayIcon::DoubleClick)
+  {
+    onRestoreActionActivated();
+  }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::changeEvent(QEvent *e)
+{
+  if (e->type() == QEvent::WindowStateChange)
+  {
+    if (isMinimized())
+    {
+      hide();
+
+      m_icon->show();
+      e->ignore();
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::closeEvent(QCloseEvent *e)
+{
+  QWidget::closeEvent(e);
+
+  emit terminated();
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::setupTrayIcon()
+{
+  auto menu = new QMenu();
+
+  auto restore = new QAction(QIcon(":/NowPlay/buttons.svg"), tr("Restore"), this);
+  connect(restore, SIGNAL(triggered()),
+          this,    SLOT(onRestoreActionActivated()));
+
+  auto play = new QAction("Now Play!", this);
+  connect(play, SIGNAL(triggered()),
+          this, SLOT(onPlayButtonClicked()));
+
+  auto next = new QAction(tr("Next"), this);
+  connect(next, SIGNAL(triggered()),
+          this, SLOT(playNext()));
+
+  next->setEnabled(false);
+
+  auto settings = new QAction(tr("Settings..."), this);
+  connect(settings, SIGNAL(triggered()),
+          this,     SLOT(onSettingsButtonClicked()));
+
+  auto about = new QAction(tr("About..."), this);
+  connect(about, SIGNAL(triggered()),
+          this,  SLOT(onAboutButtonClicked()));
+
+  auto quit = new QAction(tr("Exit"), this);
+  connect(quit, SIGNAL(triggered()),
+          this, SIGNAL(close()));
+
+  menu->addAction(restore);
+  menu->addAction(play);
+  menu->addAction(next);
+  menu->addSeparator();
+  menu->addAction(settings);
+  menu->addAction(about);
+  menu->addAction(quit);
+
+  m_icon->setContextMenu(menu);
+  m_icon->setToolTip(tr("Now Play!"));
+  m_icon->hide();
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::onRestoreActionActivated()
+{
+  m_icon->hide();
+  showNormal();
+}
+
+//-----------------------------------------------------------------
+void NowPlay::showEvent(QShowEvent* e)
+{
+  QDialog::showEvent(e);
+
+  m_taskBarButton = new QWinTaskbarButton(this);
+  m_taskBarButton->setWindow(this->windowHandle());
+  m_taskBarButton->progress()->setVisible(false);
+  m_taskBarButton->progress()->setValue(0);
 }

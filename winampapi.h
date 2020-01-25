@@ -107,14 +107,14 @@ namespace WinAmp
    * \param[in] file File or playlist file absolute file path.
    *
    */
-  void addFile(HWND handler, const std::string &file)
+  void addFile(HWND handler, const std::wstring &file)
   {
     if(handler && !file.empty())
     {
       COPYDATASTRUCT pl = {0};
       pl.dwData = IPC_PLAYFILE;
       pl.lpData = (void*)file.c_str();
-      pl.cbData = lstrlen((char*)pl.lpData)+1;
+      pl.cbData = lstrlenW((wchar_t*)pl.lpData)+1;
 
       SendMessage(handler ,WM_COPYDATA,0,(LPARAM)&pl);
     }

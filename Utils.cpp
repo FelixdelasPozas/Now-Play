@@ -59,13 +59,13 @@ bool Utils::isVideoFile(const boost::filesystem::path &path)
 }
 
 //-----------------------------------------------------------------------------
-std::vector<Utils::FileInformation> Utils::getPlayableFiles(const std::string &directory)
+std::vector<Utils::FileInformation> Utils::getPlayableFiles(const boost::filesystem::path &directory)
 {
   std::vector<FileInformation> files;
 
-  if(!directory.empty() && boost::filesystem::is_directory(directory.c_str()))
+  if(!directory.empty() && boost::filesystem::is_directory(directory))
   {
-    for(boost::filesystem::directory_entry &it: boost::filesystem::directory_iterator(directory.c_str()))
+    for(boost::filesystem::directory_entry &it: boost::filesystem::directory_iterator(directory))
     {
       const auto name = it.path();
       if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
@@ -83,13 +83,13 @@ std::vector<Utils::FileInformation> Utils::getPlayableFiles(const std::string &d
 }
 
 //-----------------------------------------------------------------------------
-std::vector<Utils::FileInformation> Utils::getSubdirectories(const std::string &directory, bool readSize)
+std::vector<Utils::FileInformation> Utils::getSubdirectories(const boost::filesystem::path &directory, bool readSize)
 {
   std::vector<FileInformation> directories;
 
-  if(!directory.empty() && boost::filesystem::is_directory(directory.c_str()))
+  if(!directory.empty() && boost::filesystem::is_directory(directory))
   {
-    for(boost::filesystem::directory_entry &it: boost::filesystem::directory_iterator(directory.c_str()))
+    for(boost::filesystem::directory_entry &it: boost::filesystem::directory_iterator(directory))
     {
       const auto name = it.path();
       if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
@@ -169,22 +169,20 @@ std::vector<Utils::FileInformation> Utils::getCopyDirectories(std::vector<Utils:
 }
 
 //-----------------------------------------------------------------------------
-bool Utils::copyDirectory(const std::string &from, const std::string &to)
+bool Utils::copyDirectory(const boost::filesystem::path &from, const boost::filesystem::path &to)
 {
-  const char SEPARATOR = '/';
-
-  boost::filesystem::directory_entry toEntry(to), fromEntry(from);
+  const wchar_t SEPARATOR = '/';
 
   boost::system::error_code error;
 
-  const auto newFolder = toEntry.path().string() + SEPARATOR + fromEntry.path().filename().string();
+  const auto newFolder = to.wstring() + SEPARATOR + from.filename().wstring();
   boost::filesystem::create_directory(newFolder);
 
   const auto files = getPlayableFiles(from);
 
   for(auto file: files)
   {
-    auto fullPath = newFolder + SEPARATOR + file.first.filename().string();
+    auto fullPath = newFolder + SEPARATOR + file.first.filename().wstring();
     boost::filesystem::copy_file(file.first, fullPath, error);
 
     if (error.value() != 0)

@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
   qInstallMessageHandler(myMessageOutput);
 
   QApplication app(argc, argv);
+  app.setQuitOnLastWindowClosed(false);
 
   // allow only one instance
   QSharedMemory guard;
@@ -64,6 +65,8 @@ int main(int argc, char *argv[])
 
   NowPlay application;
   application.show();
+
+  application.connect(&application, SIGNAL(terminated()), &app, SLOT(quit()));
 
   auto resultValue = app.exec();
 

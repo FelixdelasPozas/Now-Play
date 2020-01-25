@@ -19,7 +19,7 @@ set(Boost_LIBRARIES "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/program_
                     "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/filesystem/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_filesystem-mgw82-mt-x64-1_72.a")
                     
 # Find the Qt 5 lib.
-find_package(Qt5 COMPONENTS Widgets)
+find_package(Qt5 COMPONENTS Widgets WinExtras)
 add_definitions(${Qt5Widgets_DEFINITIONS})            
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
@@ -65,6 +65,7 @@ set(SOURCES
 set(LIBRARIES
   ${Boost_LIBRARIES}
   Qt5::Widgets
+  Qt5::WinExtras
 )
 
 add_executable(nowplay ${SOURCES})
