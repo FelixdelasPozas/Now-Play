@@ -30,12 +30,13 @@
 #include <iostream>
 #include <string>
 
+// Qt
+#include <QString>
+#include <QFileInfo>
+
 namespace WinAmp
 {
-  // NOTE: fixed location to avoid using an ini file or entering the path in the console.
-  const std::string WINAMP_LOCATION = "D:\\Program Files (x86)\\Winamp\\winamp.exe";
-
-  // Winamp WM_COMMAND & structs
+  // WinAmp WM_COMMAND & structs
   const int IPC_GETVERSION = 0;
   const int IPC_PLAYFILE   = 100;
   const int IPC_DELETE     = 101;
@@ -44,15 +45,16 @@ namespace WinAmp
   /** \brief Returns the WinAmp handler.
    *
    */
-  HWND getWinAmpHandle()
+  HWND getWinAmpHandle(const QString &winampPath)
   {
     auto handler = FindWindow("Winamp v1.x",nullptr);
+    QFileInfo fi(winampPath);
 
-    if(!handler)
+    if(!handler && !fi.exists() && winampPath.endsWith("winamp.exe", Qt::CaseInsensitive))
     {
       STARTUPINFOA info = { sizeof(STARTUPINFOA) };
       PROCESS_INFORMATION processInfo;
-      if (CreateProcessA(0, const_cast<char *>(WINAMP_LOCATION.c_str()), 0, 0, 0, DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, 0, 0, &info, &processInfo))
+      if (CreateProcessA(0, const_cast<char *>(winampPath.toStdString().c_str()), 0, 0, 0, DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, 0, 0, &info, &processInfo))
       {
         CloseHandle(processInfo.hProcess);
         CloseHandle(processInfo.hThread);

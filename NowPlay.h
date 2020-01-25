@@ -31,6 +31,9 @@
 // Boost
 #include <boost/filesystem.hpp>
 
+class QKeyEvent;
+class QEvent;
+
 /** \class NowPlay
  * \brief Main application.
  *
@@ -68,6 +71,11 @@ class NowPlay
      */
     void onAboutButtonClicked();
 
+    /** \brief Shows the configuration dialog.
+     *
+     */
+    void onSettingsButtonClicked();
+
     /** \brief Browse disk for a directory dialog.
      *
      */
@@ -88,6 +96,11 @@ class NowPlay
      *
      */
     void onSubtitleSizeChanged(int value);
+
+    /** \brief Plays the next file on the list, if any.
+     *
+     */
+    void playNext();
 
   protected:
     virtual bool event(QEvent *event) override;
@@ -127,6 +140,11 @@ class NowPlay
      */
     void callWinamp();
 
+    /** \brief Plays the list of files with SMPlayer.
+     *
+     */
+    void playVideos();
+
     /** \brief Writes the message to the log.
      * \param[in] message Text message.
      *
@@ -138,8 +156,17 @@ class NowPlay
      */
     void updateGUI();
 
-    std::vector<Utils::FileInformation> m_files;   /** list of files being casted. */
-    QProcess                            m_process; /** casting process.            */
+    /** \brief Helper method to check if the application configurations are valid and modifies the GUI
+     * depending on it.
+     *
+     */
+    void checkApplications();
+
+    std::vector<Utils::FileInformation> m_files;        /** list of files being casted.   */
+    QProcess                            m_process;      /** casting process.              */
+    QString                             m_winampPath;   /** WinAmp executable location.   */
+    QString                             m_smplayerPath; /** SMPlayer executable location. */
+    QString                             m_castnowPath;  /** Castnow script location.      */
 };
 
 

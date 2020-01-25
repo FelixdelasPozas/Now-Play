@@ -20,7 +20,11 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+// Boost
 #include <boost/filesystem/path.hpp>
+
+// Qt
+#include <QString>
 
 namespace Utils
 {
@@ -78,6 +82,24 @@ namespace Utils
    *
    */
   bool copyDirectory(const std::string &from, const std::string &to);
+
+  /** \brief Helper method to check if WinAmp location is valid.
+   * \param[in] location WinAmp location on disk.
+   *
+   */
+  bool checkIfValidWinAmpLocation(const QString &location);
+
+  /** \brief Helper method to check if SMPlayer location is valid.
+   * \param[in] location SMPlayer location on disk.
+   *
+   */
+  bool checkIfValidSMPlayerLocation(const QString &location);
+
+  /** \brief Helper method to check if Castnow location is valid.
+   * \param[in] location Castnow location on disk.
+   *
+   */
+  bool checkIfValidCastnowLocation(const QString &location);
 }
 
 #endif // UTILS_H_

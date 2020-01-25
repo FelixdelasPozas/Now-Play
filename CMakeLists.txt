@@ -59,6 +59,7 @@ set(SOURCES
   NowPlay.cpp
   Utils.cpp
   AboutDialog.cpp
+  SettingsDialog.cpp
 )
 
 set(LIBRARIES

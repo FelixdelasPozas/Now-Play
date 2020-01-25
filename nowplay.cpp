@@ -30,6 +30,7 @@
 #include "version.h"
 #include "winampapi.h"
 #include "AboutDialog.h"
+#include "SettingsDialog.h"
 
 // Qt
 #include <QSettings>
@@ -38,7 +39,8 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QStandardPaths>
-#include <QDebug>
+#include <QKeyEvent>
+#include <QString>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -52,22 +54,28 @@ const QString COPYSIZE     = "Copy Size";
 const QString COPYUNITS    = "Copy Units";
 const QString DESTINATION  = "Destination Folder";
 const QString USEWINAMP    = "Play In Winamp";
+const QString USESMPLAYER  = "Play In SMPlayer";
 const QString SUBTITLESIZE = "Subtitle Size";
+const QString WINAMP_LOC   = "WinAmp Location";
+const QString SMPLAYER_LOC = "SMPlayer Location";
+const QString CASTNOW_LOC  = "Castnow Location";
 
 const unsigned long long MEGABYTE = 1024*1024;
-
-const QString CASTNOW_LOCATION = QString::fromWCharArray(L"C:/Users/Felix/AppData/Roaming/npm/castnow.cmd");
 
 //-----------------------------------------------------------------------------
 NowPlay::NowPlay()
 : QDialog  {nullptr}
 , m_process{this}
 {
+  setWindowFlags(Qt::WindowFlags() & Qt::Dialog & Qt::WindowMinimizeButtonHint & ~Qt::WindowContextHelpButtonHint);
+
   setupUi(this);
 
   loadSettings();
 
   updateGUI();
+
+  checkApplications();
 
   connectSignals();
 }
@@ -106,14 +114,20 @@ void NowPlay::loadSettings()
   m_units->setCurrentIndex(copyUnits);
 
   const auto useWinamp = settings.value(USEWINAMP, false).toBool();
+  const auto useSMPlyer = settings.value(USESMPLAYER, false).toBool();
 
   m_winamp->setChecked(useWinamp);
-  m_castnow->setChecked(!useWinamp);
+  m_smplayer->setChecked(useSMPlyer);
+  m_castnow->setChecked(!useWinamp && !useSMPlyer);
 
   const auto subtitleSize = settings.value(SUBTITLESIZE, 1.3).toDouble();
 
   m_subtitleSizeSlider->setValue(subtitleSize * 10);
   onSubtitleSizeChanged(subtitleSize * 10);
+
+  m_winampPath   = settings.value(WINAMP_LOC,   QDir::home().absolutePath()).toString();
+  m_smplayerPath = settings.value(SMPLAYER_LOC, QDir::home().absolutePath()).toString();
+  m_castnowPath  = settings.value(CASTNOW_LOC,  QDir::home().absolutePath()).toString();
 }
 
 //-----------------------------------------------------------------------------
@@ -121,13 +135,17 @@ void NowPlay::saveSettings()
 {
   QSettings settings("Felix de las Pozas Alvarez", "NowPlay");
 
-  settings.setValue(GEOMETRY, saveGeometry());
-  settings.setValue(FOLDER, m_baseDir->text());
-  settings.setValue(DESTINATION, m_destinationDir->text());
-  settings.setValue(COPYSIZE, m_amount->currentIndex());
-  settings.setValue(COPYUNITS, m_units->currentIndex());
-  settings.setValue(USEWINAMP, m_winamp->isChecked());
+  settings.setValue(GEOMETRY,     saveGeometry());
+  settings.setValue(FOLDER,       m_baseDir->text());
+  settings.setValue(DESTINATION,  m_destinationDir->text());
+  settings.setValue(COPYSIZE,     m_amount->currentIndex());
+  settings.setValue(COPYUNITS,    m_units->currentIndex());
+  settings.setValue(USEWINAMP,    m_winamp->isChecked());
+  settings.setValue(USESMPLAYER,  m_smplayer->isChecked());
   settings.setValue(SUBTITLESIZE, static_cast<double>(m_subtitleSizeSlider->value()/10.));
+  settings.setValue(WINAMP_LOC,   m_winampPath);
+  settings.setValue(SMPLAYER_LOC, m_smplayerPath);
+  settings.setValue(CASTNOW_LOC,  m_castnowPath);
   settings.sync();
 }
 
@@ -135,7 +153,9 @@ void NowPlay::saveSettings()
 //-----------------------------------------------------------------------------
 void NowPlay::callWinamp()
 {
-  auto handler = WinAmp::getWinAmpHandle();
+  if(!Utils::checkIfValidWinAmpLocation(m_winampPath)) return;
+
+  auto handler = WinAmp::getWinAmpHandle(m_winampPath);
 
   if(!handler)
   {
@@ -179,6 +199,27 @@ void NowPlay::callWinamp()
 }
 
 //-----------------------------------------------------------------------------
+void NowPlay::playVideos()
+{
+  if(!Utils::checkIfValidSMPlayerLocation(m_smplayerPath)) return;
+
+  QStringList arguments;
+  arguments << "-no-close-at-end";
+  arguments << "-add-to-playlist";
+
+  auto addToArguments = [&arguments](const Utils::FileInformation &f)
+  {
+    if(Utils::isVideoFile(f.first))
+    {
+      arguments << QString::fromStdWString(f.first.wstring());
+    }
+  };
+  std::for_each(m_files.cbegin(), m_files.cend(), addToArguments);
+
+  m_process.start(m_smplayerPath, arguments);
+}
+
+//-----------------------------------------------------------------------------
 void NowPlay::castFile()
 {
   if(m_process.state() == QProcess::ProcessState::Running)
@@ -192,6 +233,8 @@ void NowPlay::castFile()
     m_play->setText("Now Play!");
     return;
   }
+
+  if(!Utils::checkIfValidCastnowLocation(m_castnowPath)) return;
 
   auto isValidFile = [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); };
   auto file = std::find_if(m_files.begin(), m_files.end(), isValidFile);
@@ -212,7 +255,7 @@ void NowPlay::castFile()
       arguments << m_subtitleSizeLabel->text();
     }
 
-    m_process.start(CASTNOW_LOCATION, arguments, QProcess::Unbuffered|QProcess::ReadWrite);
+    m_process.start(m_castnowPath, arguments, QProcess::Unbuffered|QProcess::ReadWrite);
     m_process.waitForStarted();
   }
   else
@@ -234,7 +277,9 @@ void NowPlay::connectSignals()
   connect(m_browseDestination,  SIGNAL(pressed()),           this, SLOT(browseDir()));
   connect(m_about,              SIGNAL(pressed()),           this, SLOT(onAboutButtonClicked()));
   connect(m_play,               SIGNAL(pressed()),           this, SLOT(onPlayButtonClicked()));
+  connect(m_next,               SIGNAL(pressed()),           this, SLOT(playNext()));
   connect(m_exit,               SIGNAL(pressed()),           this, SLOT(close()));
+  connect(m_settings,           SIGNAL(pressed()),           this, SLOT(onSettingsButtonClicked()));
   connect(m_subtitleSizeSlider, SIGNAL(valueChanged(int)),   this, SLOT(onSubtitleSizeChanged(int)));
 
   connect(&m_process, SIGNAL(readyReadStandardOutput()), this, SLOT(onOuttputAvailable()));
@@ -262,6 +307,7 @@ void NowPlay::onPlayButtonClicked()
     m_progress->setValue(0);
     m_progress->setEnabled(false);
     m_play->setText("Now Play!");
+    m_next->setEnabled(false);
     return;
   }
 
@@ -374,12 +420,10 @@ void NowPlay::onPlayButtonClicked()
     return;
   }
 
-  // Cast mode.
-  m_play->setText("Stop");
-
+  // Play mode.
   if(!validPaths.empty())
   {
-    QString message = QString::fromStdString(directory.string()) + " has " + QString::number(validPaths.size()) + " directories.";
+    QString message = tr("<b>") + QString::fromStdString(directory.string()) + tr("</b> has ") + QString::number(validPaths.size()) + tr(" directories.");
     log(message);
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -390,12 +434,12 @@ void NowPlay::onPlayButtonClicked()
 
     directory = validPaths.at(roll-1).first;
 
-    message = QString("Selected: ") + QString::fromStdString(directory.filename().string());
+    message = QString("Selected: <b>") + QString::fromStdString(directory.filename().string()) + tr("</b>");
     log(message);
   }
   else
   {
-    QString message = QString("Base directory: ") + QString::fromStdString(directory.string());
+    QString message = QString("Base directory: <b>") + QString::fromStdString(directory.string()) + tr("</b>");
     log(message);
   }
 
@@ -409,15 +453,25 @@ void NowPlay::onPlayButtonClicked()
     }
     else
     {
-      m_progress->setEnabled(true);
-      m_progress->setMinimum(0);
-      const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
-      m_progress->setMaximum(count);
-      m_progress->setValue(0);
+      if(m_castnow->isChecked())
+      {
+        m_play->setText("Stop");
+        m_next->setEnabled(true);
 
-      m_tabWidget->setEnabled(false);
+        m_progress->setEnabled(true);
+        m_progress->setMinimum(0);
+        const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
+        m_progress->setMaximum(count);
+        m_progress->setValue(0);
 
-      castFile();
+        m_tabWidget->setEnabled(false);
+
+        castFile();
+      }
+      else
+      {
+        playVideos();
+      }
     }
   }
   else
@@ -477,7 +531,7 @@ void NowPlay::showErrorMessage(const QString &message, const QString &title, con
 //-----------------------------------------------------------------------------
 void NowPlay::log(const QString &message)
 {
-  m_log->appendPlainText(message);
+  m_log->append(message.toUtf8());
 }
 
 //-----------------------------------------------------------------------------
@@ -502,6 +556,22 @@ void NowPlay::keyPressEvent(QKeyEvent *e)
 void NowPlay::updateGUI()
 {
   m_tabWidget->setCurrentIndex(0);
+  m_next->setEnabled(false);
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::checkApplications()
+{
+  const auto validWinamp   = Utils::checkIfValidWinAmpLocation(m_winampPath);
+  const auto validSMPlayer = Utils::checkIfValidSMPlayerLocation(m_smplayerPath);
+  const auto validCastnow  = Utils::checkIfValidCastnowLocation(m_castnowPath);
+
+  m_winamp->setEnabled(validWinamp);
+  m_smplayer->setEnabled(validSMPlayer);
+  m_castnow->setEnabled(validCastnow);
+
+  const auto isValid = validWinamp || validSMPlayer || validCastnow;
+  m_play->setEnabled(isValid);
 }
 
 //-----------------------------------------------------------------------------
@@ -523,9 +593,22 @@ bool NowPlay::event(QEvent *event)
 void NowPlay::onOuttputAvailable()
 {
   const auto data = m_process.readAll().toStdString();
-  const auto pos = data.find("Idle...");
+  auto pos = data.find("Idle...");
   if(std::string::npos != pos)
   {
+    m_process.kill();
+    m_process.waitForFinished(-1);
+    return;
+  }
+
+  pos = data.find("Error: Load failed");
+  if(std::string::npos != pos)
+  {
+    m_log->document()->undo();
+    m_log->append("<font color=\"red\">");
+    m_log->document()->redo();
+    m_log->append("</font>");
+
     m_process.kill();
     m_process.waitForFinished(-1);
   }
@@ -535,4 +618,25 @@ void NowPlay::onOuttputAvailable()
 void NowPlay::onSubtitleSizeChanged(int value)
 {
   m_subtitleSizeLabel->setText(QString::number(static_cast<double>(value/10.), 'e', 2));
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::playNext()
+{
+  m_process.kill();
+  m_process.waitForFinished(-1);
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::onSettingsButtonClicked()
+{
+  SettingsDialog dialog(m_winampPath, m_smplayerPath, m_castnowPath, this);
+  if(QDialog::Accepted == dialog.exec())
+  {
+    m_winampPath = dialog.getWinampLocation();
+    m_smplayerPath = dialog.getSmplayerLocation();
+    m_castnowPath = dialog.getCastnowLocation();
+
+    checkApplications();
+  }
 }

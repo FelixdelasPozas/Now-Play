@@ -28,6 +28,9 @@
 #include <numeric>
 #include <random>
 
+// Qt
+#include <QFileInfo>
+
 //-----------------------------------------------------------------------------
 bool Utils::isAudioFile(const boost::filesystem::path &path)
 {
@@ -197,4 +200,40 @@ bool Utils::copyDirectory(const std::string &from, const std::string &to)
 bool Utils::lessThan(const FileInformation &lhs, const FileInformation &rhs)
 {
   return lhs.first < rhs.first;
+}
+
+//-----------------------------------------------------------------------------
+bool Utils::checkIfValidWinAmpLocation(const QString &location)
+{
+  if(!location.isEmpty())
+  {
+    QFileInfo file(location);
+    return location.endsWith("winamp.exe", Qt::CaseInsensitive) && file.exists();
+  }
+
+  return false;
+}
+
+//-----------------------------------------------------------------------------
+bool Utils::checkIfValidSMPlayerLocation(const QString &location)
+{
+  if(!location.isEmpty())
+  {
+    QFileInfo file(location);
+    return location.endsWith("smplayer.exe", Qt::CaseInsensitive) && file.exists();
+  }
+
+  return false;
+}
+
+//-----------------------------------------------------------------------------
+bool Utils::checkIfValidCastnowLocation(const QString &location)
+{
+  if(!location.isEmpty())
+  {
+    QFileInfo file(location);
+    return location.endsWith("castnow.cmd", Qt::CaseInsensitive) && file.exists();
+  }
+
+  return false;
 }

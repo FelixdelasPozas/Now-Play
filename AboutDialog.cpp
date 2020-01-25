@@ -30,9 +30,11 @@
 
 
 //-----------------------------------------------------------------------------
-AboutDialog::AboutDialog(QWidget* parent, Qt::WindowFlags flags)
-: QDialog(parent, flags)
+AboutDialog::AboutDialog(QWidget* parent)
+: QDialog(parent)
 {
+  setWindowFlag(Qt::WindowContextHelpButtonHint, 0);
+
   setupUi(this);
 
   m_qtVersion->setText(tr("version %1").arg(qVersion()));
