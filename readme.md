@@ -41,7 +41,7 @@ Binaries are not provided.
 
 # Screenshots
 
-Simple main dialog. Next nutton is only available while casting files to Chromecast as WinAmp and SMPlayer will load files as a playlist and play them sequentially. 
+Simple main dialog. Next button is only available while casting files to Chromecast as WinAmp and SMPlayer will load files as a playlist and play them sequentially. 
 
 ![Main dialog](https://user-images.githubusercontent.com/12167134/73141718-7b342900-4087-11ea-8e3a-ff02dc8610eb.jpg)
 
