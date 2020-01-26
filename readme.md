@@ -43,11 +43,11 @@ Binaries are not provided.
 
 Simple main dialog. Next nutton is only available while casting files to Chromecast as WinAmp and SMPlayer will load files as a playlist and play them sequentially. 
 
-![Main dialog]()
+![Main dialog](https://user-images.githubusercontent.com/12167134/73141718-7b342900-4087-11ea-8e3a-ff02dc8610eb.jpg)
 
 Settings configuration dialog. If any of the applications is not present playing for it will be disabled by the tool.
 
-![Configuration Dialog]()
+![Configuration Dialog](https://user-images.githubusercontent.com/12167134/73141717-7b342900-4087-11ea-88b9-d844dac9b75a.jpg)
 
 # Repository information
 **Version**: 2.0
