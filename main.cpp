@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     msgBox.setText("Now Play! is already running!");
     msgBox.setStandardButtons(QMessageBox::Ok);
     msgBox.exec();
-    exit(0);
+    std::exit(0);
   }
 
   NowPlay application;
