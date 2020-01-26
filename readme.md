@@ -18,7 +18,7 @@ Optionally, given a limit size and a destination will copy a random selection of
 ## Input file formats
 The following file formats are detected and supported by the tool as input files:
 * **Audio formats**: mp3, m3u playlist, m3u8 playlist.
-* **Video formats**: mp4.
+* **Video formats**: mp4, mkv.
 
 # Compilation requirements
 ## To build the tool:
