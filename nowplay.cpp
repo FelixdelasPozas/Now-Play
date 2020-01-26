@@ -70,6 +70,7 @@ NowPlay::NowPlay()
 : QDialog  {nullptr}
 , m_process{this}
 , m_icon   {new QSystemTrayIcon(QIcon(":/NowPlay/buttons.svg"), this)}
+, m_taskBarButton{nullptr}
 {
   setWindowFlags(Qt::WindowFlags() & Qt::Dialog & Qt::WindowMinimizeButtonHint & ~Qt::WindowContextHelpButtonHint);
 
@@ -234,10 +235,7 @@ void NowPlay::castFile()
     m_files.clear();
     m_tabWidget->setEnabled(true);
 
-    m_progress->setValue(0);
-    m_taskBarButton->progress()->setValue(0);
-    m_taskBarButton->progress()->setVisible(false);
-    m_progress->setEnabled(false);
+    setProgress(0);
     m_play->setText("Now Play!");
     return;
   }
@@ -251,9 +249,7 @@ void NowPlay::castFile()
     const auto filename = (*file).first;
     m_files.erase(file);
 
-    m_progress->setValue(m_progress->value() + 1);
-    if(!m_taskBarButton->progress()->isVisible()) m_taskBarButton->progress()->setVisible(true);
-    m_taskBarButton->progress()->setValue(m_progress->value());
+    setProgress(m_progress->value() + 1);
 
     log(QString::fromStdWString(filename.filename().wstring()));
 
@@ -268,17 +264,19 @@ void NowPlay::castFile()
     m_process.start(m_castnowPath, arguments, QProcess::Unbuffered|QProcess::ReadWrite);
     m_process.waitForStarted();
 
-    m_icon->showMessage(QString::fromStdWString(filename.parent_path().filename().c_str()), QString::fromStdWString(filename.c_str()), QIcon(":/NowPlay/buttons.svg"));
+    if(m_icon->isVisible())
+    {
+      m_icon->showMessage(QString::fromStdWString(filename.parent_path().filename().c_str()),
+                          QString::fromStdWString(filename.filename().c_str()),
+                          QIcon(":/NowPlay/buttons.svg"), 7500);
+    }
   }
   else
   {
     m_files.clear();
     m_tabWidget->setEnabled(true);
 
-    m_progress->setValue(0);
-    m_progress->setEnabled(false);
-    m_taskBarButton->progress()->setValue(0);
-    m_taskBarButton->progress()->setVisible(false);
+    setProgress(0);
     m_play->setText("Now Play!");
   }
 }
@@ -320,9 +318,7 @@ void NowPlay::onPlayButtonClicked()
     m_files.clear();
     m_tabWidget->setEnabled(true);
 
-    m_progress->setValue(0);
-    m_progress->setEnabled(false);
-    m_taskBarButton->progress()->setValue(0);
+    setProgress(0);
     m_play->setText("Now Play!");
     m_next->setEnabled(false);
     m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
@@ -405,10 +401,10 @@ void NowPlay::onPlayButtonClicked()
       QApplication::setOverrideCursor(Qt::WaitCursor);
 
       int i = 0;
-      m_progress->setEnabled(true);
+      setProgress(0);
       for(auto dir: selectedDirs)
       {
-        m_progress->setValue((100*i)/selectedDirs.size());
+        setProgress((100*i)/selectedDirs.size());
         m_taskBarButton->progress()->setValue(m_progress->value());
 
         if(!Utils::copyDirectory(dir.first.string(), destination))
@@ -425,8 +421,7 @@ void NowPlay::onPlayButtonClicked()
 
       QApplication::restoreOverrideCursor();
 
-      m_progress->setValue(100);
-      m_progress->setEnabled(false);
+      setProgress(100);
       m_taskBarButton->progress()->setValue(100);
 
       m_play->setEnabled(true);
@@ -481,13 +476,11 @@ void NowPlay::onPlayButtonClicked()
         m_icon->contextMenu()->actions().at(1)->setText("Stop");
         m_icon->contextMenu()->actions().at(2)->setEnabled(true);
 
-        m_progress->setEnabled(true);
         const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
-        m_progress->setMinimum(0);
-        m_progress->setMaximum(count);
-        m_taskBarButton->progress()->setMinimum(0);
-        m_taskBarButton->progress()->setMinimum(count);
-        m_progress->setValue(0);
+        m_progress->setRange(0, count);
+        m_taskBarButton->progress()->setRange(0,  count);
+
+        setProgress(0);
 
         m_tabWidget->setEnabled(false);
 
@@ -631,10 +624,7 @@ void NowPlay::onOuttputAvailable()
   pos = data.find("Error: Load failed");
   if(std::string::npos != pos)
   {
-    m_log->document()->undo();
-    m_log->append("<font color=\"red\">");
-    m_log->document()->redo();
-    m_log->append("</font>");
+    log(tr("<b><font color =\"red\">Unable to play!</font></b>"));
 
     m_process.kill();
     m_process.waitForFinished(-1);
@@ -729,7 +719,7 @@ void NowPlay::setupTrayIcon()
 
   auto quit = new QAction(tr("Exit"), this);
   connect(quit, SIGNAL(triggered()),
-          this, SIGNAL(close()));
+          this, SLOT(close()));
 
   menu->addAction(restore);
   menu->addAction(play);
@@ -756,8 +746,40 @@ void NowPlay::showEvent(QShowEvent* e)
 {
   QDialog::showEvent(e);
 
-  m_taskBarButton = new QWinTaskbarButton(this);
-  m_taskBarButton->setWindow(this->windowHandle());
-  m_taskBarButton->progress()->setVisible(false);
-  m_taskBarButton->progress()->setValue(0);
+  if(!m_taskBarButton)
+  {
+    m_taskBarButton = new QWinTaskbarButton(this);
+    m_taskBarButton->setWindow(this->windowHandle());
+    m_taskBarButton->progress()->setVisible(false);
+    m_taskBarButton->progress()->setValue(0);
+  }
+  else
+ {
+    m_taskBarButton->progress()->setValue(m_progress->value());
+ }
+}
+
+//-----------------------------------------------------------------
+void NowPlay::setProgress(int value)
+{
+  const auto minimized = isMinimized();
+
+  if(!m_progress->isEnabled() && value != 0)
+  {
+    m_progress->setEnabled(true);
+  }
+
+  if(!minimized && !m_taskBarButton->progress()->isVisible() && value != 0)
+  {
+    m_taskBarButton->progress()->setVisible(true);
+  }
+
+  m_progress->setValue(value);
+  if(!minimized) m_taskBarButton->progress()->setValue(value);
+
+  if(value == 0)
+  {
+    m_progress->setEnabled(false);
+    if(!minimized) m_taskBarButton->progress()->setVisible(false);
+  }
 }

@@ -185,6 +185,12 @@ class NowPlay
      */
     void setupTrayIcon();
 
+    /** \brief Sets the progress in the various widgets.
+     * \param[in] value Progress value.
+     *
+     */
+    void setProgress(int value);
+
     std::vector<Utils::FileInformation> m_files;         /** list of files being casted.      */
     QProcess                            m_process;       /** casting process.                 */
     QString                             m_winampPath;    /** WinAmp executable location.      */
