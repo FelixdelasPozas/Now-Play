@@ -237,6 +237,7 @@ void NowPlay::castFile()
 
     setProgress(0);
     m_play->setText("Now Play!");
+    m_next->setEnabled(false);
     return;
   }
 
@@ -278,6 +279,7 @@ void NowPlay::castFile()
 
     setProgress(0);
     m_play->setText("Now Play!");
+    m_next->setEnabled(false);
   }
 }
 
@@ -755,7 +757,14 @@ void NowPlay::showEvent(QShowEvent* e)
   }
   else
  {
-    m_taskBarButton->progress()->setValue(m_progress->value());
+    if(m_progress->value() != 0)
+    {
+      m_taskBarButton->progress()->setValue(m_progress->value());
+    }
+    else
+    {
+      m_taskBarButton->progress()->setVisible(false);
+    }
  }
 }
 
