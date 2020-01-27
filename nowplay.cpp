@@ -225,6 +225,8 @@ void NowPlay::playVideos()
   std::for_each(m_files.cbegin(), m_files.cend(), addToArguments);
 
   m_process.start(m_smplayerPath, arguments);
+
+  m_files.clear();
 }
 
 //-----------------------------------------------------------------------------
@@ -242,7 +244,7 @@ void NowPlay::castFile()
     return;
   }
 
-  if(!Utils::checkIfValidCastnowLocation(m_castnowPath)) return;
+  if(!m_castnow->isChecked() || !Utils::checkIfValidCastnowLocation(m_castnowPath)) return;
 
   auto isValidFile = [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); };
   auto file = std::find_if(m_files.begin(), m_files.end(), isValidFile);
@@ -329,7 +331,7 @@ void NowPlay::onPlayButtonClicked()
     return;
   }
 
-  if(!m_files.empty() && m_castnow->isChecked())
+  if(!m_files.empty())
   {
     QMessageBox msgBox(this);
     msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
@@ -348,21 +350,34 @@ void NowPlay::onPlayButtonClicked()
       default:
       case QMessageBox::Button::Cancel:
         {
-          m_play->setText("Stop");
-          m_next->setEnabled(true);
-          m_icon->contextMenu()->actions().at(1)->setText("Stop");
-          m_icon->contextMenu()->actions().at(2)->setEnabled(true);
+          if(m_castnow->isChecked())
+          {
+            m_play->setText("Stop");
+            m_next->setEnabled(true);
+            m_icon->contextMenu()->actions().at(1)->setText("Stop");
+            m_icon->contextMenu()->actions().at(2)->setEnabled(true);
 
-          const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
-          m_progress->setRange(0, count);
-          m_taskBarButton->progress()->setRange(0,  count);
+            const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
+            m_progress->setRange(0, count);
+            m_taskBarButton->progress()->setRange(0,  count);
 
-          setProgress(0);
+            setProgress(0);
 
-          m_tabWidget->setEnabled(false);
+            m_tabWidget->setEnabled(false);
 
-          castFile();
-
+            castFile();
+          }
+          else
+          {
+            if(m_smplayer->isChecked())
+            {
+              playVideos();
+            }
+            else
+            {
+              callWinamp();
+            }
+          }
           return;
         }
         break;
