@@ -253,10 +253,10 @@ void NowPlay::castFile()
 
     setProgress(m_progress->value() + 1);
 
-    log(QString::fromStdWString(filename.filename().wstring()));
+    log(QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum()));
 
     QStringList arguments;
-    arguments << QString::fromStdWString(filename.wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum());
+    arguments << QString::fromStdWString(filename.wstring());
     if(Utils::isVideoFile(filename.string()))
     {
       arguments << "--subtitle-scale";
@@ -334,15 +334,38 @@ void NowPlay::onPlayButtonClicked()
     QMessageBox msgBox(this);
     msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
     msgBox.setWindowTitle(tr("Now Play!"));
-    msgBox.setText(tr("%1 files are still on the playlist. Do you want to replace or merge with the current playlist?").arg(m_files.size()));
+    msgBox.setText(tr("%1 files are on the playlist. Do you want to replace or play the current playlist?").arg(m_files.size()));
     msgBox.setIcon(QMessageBox::Icon::Information);
     msgBox.setStandardButtons(QMessageBox::Button::Cancel|QMessageBox::Button::Ok);
-    msgBox.button(QMessageBox::Button::Cancel)->setText("Merge");
+    msgBox.button(QMessageBox::Button::Cancel)->setText("Play");
     msgBox.button(QMessageBox::Button::Ok)->setText("Replace");
 
-    if(QMessageBox::Button::Ok == msgBox.exec())
+    switch(msgBox.exec())
     {
-      m_files.clear();
+      case QMessageBox::Button::Ok:
+        m_files.clear();
+        break;
+      default:
+      case QMessageBox::Button::Cancel:
+        {
+          m_play->setText("Stop");
+          m_next->setEnabled(true);
+          m_icon->contextMenu()->actions().at(1)->setText("Stop");
+          m_icon->contextMenu()->actions().at(2)->setEnabled(true);
+
+          const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
+          m_progress->setRange(0, count);
+          m_taskBarButton->progress()->setRange(0,  count);
+
+          setProgress(0);
+
+          m_tabWidget->setEnabled(false);
+
+          castFile();
+
+          return;
+        }
+        break;
     }
   }
 
