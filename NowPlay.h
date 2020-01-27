@@ -119,7 +119,7 @@ class NowPlay
     void onRestoreActionActivated();
 
   protected:
-    virtual bool event(QEvent *event) override;
+    virtual bool event(QEvent *e) override;
 
     virtual void keyPressEvent(QKeyEvent *e) override;
 
@@ -128,6 +128,10 @@ class NowPlay
     virtual void closeEvent(QCloseEvent *e) override;
 
     virtual void showEvent(QShowEvent *e) override;
+
+    virtual void dropEvent(QDropEvent *e) override;
+
+    virtual void dragEnterEvent(QDragEnterEvent *e) override;
 
   private:
     /** \brief Saves the application settings to the registry.

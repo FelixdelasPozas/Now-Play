@@ -11,8 +11,10 @@ Now Play!
 # Description
 Now Play! is a simple little tool to help play media files in various programs. The tool balloned from a simple command line application to a Qt 5 desktop one fairly quickly, just because I tend
 to listen a lot of music while coding.
+
 The tool will choose a random directory from the stablished 'base directory' and play the files in that sub-directory sequentially in the selected application (WinAmp, SMPlayer or Chromecast). If
 the tool can't find a sub-directory from the base given one, then will search the base directory for playable files. 
+
 Optionally, given a limit size and a destination will copy a random selection of the base subdirectories to destination up to the given limit (i.e. to fill a thumb drive with media files).
 
 ## Input file formats
@@ -50,7 +52,7 @@ Settings configuration dialog. If any of the applications is not present playing
 ![Configuration Dialog](https://user-images.githubusercontent.com/12167134/73141717-7b342900-4087-11ea-88b9-d844dac9b75a.jpg)
 
 # Repository information
-**Version**: 2.0
+**Version**: 2.1
 
 **Status**: finished
 
@@ -60,7 +62,7 @@ Settings configuration dialog. If any of the applications is not present playing
 
 | Language                     |files          |blank        |comment           |code  |
 |:-----------------------------|--------------:|------------:|-----------------:|-----:|
-| C++                          |    5          |  237        |    140           | 861  |
-| C/C++ Header                 |    5          |  105        |    274           | 194  |
+| C++                          |    5          |  250        |    142           | 942  |
+| C/C++ Header                 |    5          |  107        |    274           | 196  |
 | CMake                        |    2          |   20        |     18           |  65  |
-| **Total**                    |   **12**      |  **362**    |   **432**        |**1120**|
+| **Total**                    |   **12**      |  **377**    |   **434**        |**1203**|

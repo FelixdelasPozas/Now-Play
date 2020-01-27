@@ -44,6 +44,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QWinTaskbarProgress>
+#include <QMimeData>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -255,7 +256,7 @@ void NowPlay::castFile()
     log(QString::fromStdWString(filename.filename().wstring()));
 
     QStringList arguments;
-    arguments << QDir::fromNativeSeparators(QString::fromStdWString(filename.wstring()));
+    arguments << QString::fromStdWString(filename.wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum());
     if(Utils::isVideoFile(filename.string()))
     {
       arguments << "--subtitle-scale";
@@ -326,6 +327,23 @@ void NowPlay::onPlayButtonClicked()
     m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
     m_icon->contextMenu()->actions().at(2)->setEnabled(false);
     return;
+  }
+
+  if(!m_files.empty() && m_castnow->isChecked())
+  {
+    QMessageBox msgBox(this);
+    msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
+    msgBox.setWindowTitle(tr("Now Play!"));
+    msgBox.setText(tr("%1 files are still on the playlist. Do you want to replace or merge with the current playlist?").arg(m_files.size()));
+    msgBox.setIcon(QMessageBox::Icon::Information);
+    msgBox.setStandardButtons(QMessageBox::Button::Cancel|QMessageBox::Button::Ok);
+    msgBox.button(QMessageBox::Button::Cancel)->setText("Merge");
+    msgBox.button(QMessageBox::Button::Ok)->setText("Replace");
+
+    if(QMessageBox::Button::Ok == msgBox.exec())
+    {
+      m_files.clear();
+    }
   }
 
   const bool isCopyMode = m_tabWidget->currentIndex() == 1;
@@ -441,7 +459,7 @@ void NowPlay::onPlayButtonClicked()
   // Play mode.
   if(!validPaths.empty())
   {
-    QString message = tr("<b>") + QString::fromStdWString(directory.wstring()) + tr("</b> has ") + QString::number(validPaths.size()) + tr(" directories.");
+    QString message = tr("<b>") + QDir::toNativeSeparators(QString::fromStdWString(directory.wstring())) + tr("</b> has ") + QString::number(validPaths.size()) + tr(" directories.");
     log(message);
 
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -461,7 +479,8 @@ void NowPlay::onPlayButtonClicked()
     log(message);
   }
 
-  m_files = Utils::getPlayableFiles(directory);
+  auto files = Utils::getPlayableFiles(directory);
+  std::move(files.begin(), files.end(), std::back_inserter(m_files));
 
   if(!m_files.empty())
   {
@@ -579,6 +598,8 @@ void NowPlay::updateGUI()
   m_next->setEnabled(false);
   m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
   m_icon->contextMenu()->actions().at(2)->setEnabled(false);
+
+  setAcceptDrops(true);
 }
 
 //-----------------------------------------------------------------------------
@@ -790,5 +811,80 @@ void NowPlay::setProgress(int value)
   {
     m_progress->setEnabled(false);
     if(!minimized) m_taskBarButton->progress()->setVisible(false);
+  }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::dropEvent(QDropEvent *e)
+{
+  std::vector<Utils::FileInformation> files;
+
+  if(e)
+  {
+    const auto data = e->mimeData();
+
+    if (data->hasUrls())
+    {
+      const auto fileList = data->urls();
+
+      for(auto filePath: fileList)
+      {
+        auto file = boost::filesystem::path(filePath.toLocalFile().toStdWString());
+        if(boost::filesystem::is_regular_file(file) && (Utils::isAudioFile(file) || Utils::isVideoFile(file)))
+        {
+          files.emplace_back(file,0);
+        }
+      }
+
+      if(!files.empty())
+      {
+        if(!m_files.empty())
+        {
+          QMessageBox msgBox(this);
+          msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
+          msgBox.setWindowTitle(tr("Now Play!"));
+          msgBox.setText(tr("%1 files can be added to the playlist. Do you want to replace or merge with the current playlist?").arg(files.size()));
+          msgBox.setIcon(QMessageBox::Icon::Information);
+          msgBox.setStandardButtons(QMessageBox::Button::Ok|QMessageBox::Button::Abort|QMessageBox::Button::Cancel);
+          msgBox.button(QMessageBox::Button::Abort)->setText("Merge");
+          msgBox.button(QMessageBox::Button::Ok)->setText("Replace");
+
+          const auto button = msgBox.exec();
+
+          switch(button)
+          {
+            case QMessageBox::Button::Ok:
+              m_files.clear();
+              break;
+            case QMessageBox::Button::Cancel:
+              e->accept();
+              return;
+              break;
+            default:
+            case QMessageBox::Button::Abort:
+              break;
+          }
+        }
+
+        std::sort(files.begin(), files.end(), Utils::lessThan);
+
+        auto addFileToPlaylist = [this](const Utils::FileInformation &f)
+        {
+          log(tr("Added to current playlist: %1").arg(QString::fromStdWString(f.first.filename().wstring())));
+          m_files.push_back(std::move(f));
+        };
+        std::for_each(files.cbegin(), files.cend(), addFileToPlaylist);
+      }
+    }
+  }
+  e->setAccepted(!files.empty());
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::dragEnterEvent(QDragEnterEvent *e)
+{
+  if (e->mimeData()->hasUrls())
+  {
+    e->acceptProposedAction();
   }
 }
