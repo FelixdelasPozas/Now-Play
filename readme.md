@@ -52,7 +52,7 @@ Settings configuration dialog. If any of the applications is not present playing
 ![Configuration Dialog](https://user-images.githubusercontent.com/12167134/73141717-7b342900-4087-11ea-88b9-d844dac9b75a.jpg)
 
 # Repository information
-**Version**: 2.1
+**Version**: 2.2
 
 **Status**: finished
 
@@ -60,9 +60,9 @@ Settings configuration dialog. If any of the applications is not present playing
 
 **cloc statistics**
 
-| Language                     |files          |blank        |comment           |code  |
-|:-----------------------------|--------------:|------------:|-----------------:|-----:|
-| C++                          |    5          |  255        |    142           | 975  |
-| C/C++ Header                 |    5          |  107        |    274           | 196  |
-| CMake                        |    2          |   20        |     18           |  65  |
-| **Total**                    |   **12**      |  **382**    |   **434**        |**1236**|
+| Language                     |files          |blank        |comment           |code   |
+|:-----------------------------|--------------:|------------:|-----------------:|------:|
+| C++                          |    5          |  259        |    143           | 1010  |
+| C/C++ Header                 |    5          |  107        |    274           |  196  |
+| CMake                        |    2          |   20        |     18           |   65  |
+| **Total**                    |   **12**      |  **386**    |   **435**        |**1271**|

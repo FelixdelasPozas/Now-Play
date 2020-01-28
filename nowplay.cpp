@@ -614,19 +614,59 @@ void NowPlay::log(const QString &message)
 //-----------------------------------------------------------------------------
 void NowPlay::keyPressEvent(QKeyEvent *e)
 {
-  if(m_process.state() == QProcess::ProcessState::Running)
+  if(m_process.state() == QProcess::ProcessState::Running && m_castnow->isChecked())
   {
-    std::cout << "pressed " << e->key() << " or " << e->text().toLocal8Bit().constData() << " l " << e->text().length() << std::endl;
-    e->accept();
+    QStringList arguments;
+    arguments << "--command";
 
-    m_process.write(e->text().toLocal8Bit().constData(), e->text().length());
-    std::cout << m_process.bytesToWrite() << " " <<  m_process.bytesAvailable();
-    if(!m_process.waitForBytesWritten()) std::cout << "write wait fail" << std::endl;
+    switch(e->key())
+    {
+      case Qt::Key_Up:
+        arguments << "up";
+        break;
+      case Qt::Key_Down:
+        arguments << "down";
+        break;
+      case Qt::Key_S:
+        arguments << "s";
+        break;
+      case Qt::Key_Q:
+        arguments << "quit";
+        break;
+      case Qt::Key_Left:
+        arguments << "left";
+        break;
+      case Qt::Key_Right:
+        arguments << "right";
+        break;
+      case Qt::Key_Space:
+        arguments << "space";
+        break;
+      case Qt::Key_M:
+        arguments << "m";
+        break;
+      case Qt::Key_T:
+        arguments << "t";
+        break;
+      default:
+        break;
+    }
+
+    // in case the key was not valid execute the default QDialog class method.
+    if(arguments.size() > 1)
+    {
+      arguments << "--exit";
+      e->accept();
+
+      QProcess command(this);
+      command.start(m_castnowPath, arguments);
+      command.waitForFinished(-1);
+
+      return;
+    }
   }
-  else
-  {
-    QDialog::keyPressEvent(e);
-  }
+
+  QDialog::keyPressEvent(e);
 }
 
 //-----------------------------------------------------------------------------
@@ -638,6 +678,7 @@ void NowPlay::updateGUI()
   m_icon->contextMenu()->actions().at(2)->setEnabled(false);
 
   setAcceptDrops(true);
+  setFocusPolicy(Qt::FocusPolicy::StrongFocus);
 }
 
 //-----------------------------------------------------------------------------
@@ -663,7 +704,6 @@ bool NowPlay::event(QEvent *event)
     auto ke = static_cast<QKeyEvent *>(event);
     keyPressEvent(ke);
 
-    std::cout << m_process.readAllStandardError().constData() << std::endl;
     return true;
   }
 
