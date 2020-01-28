@@ -271,7 +271,7 @@ void NowPlay::castFile()
     if(m_icon->isVisible())
     {
       m_icon->showMessage(QString::fromStdWString(filename.parent_path().filename().c_str()),
-                          QString::fromStdWString(filename.filename().c_str()),
+                          QString::fromStdWString(filename.filename().c_str()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum()),
                           QIcon(":/NowPlay/buttons.svg"), 7500);
     }
   }
