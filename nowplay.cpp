@@ -236,11 +236,9 @@ void NowPlay::castFile()
   {
     m_process.kill();
     m_files.clear();
-    m_tabWidget->setEnabled(true);
 
-    setProgress(0);
-    m_play->setText("Now Play!");
-    m_next->setEnabled(false);
+    resetState();
+
     return;
   }
 
@@ -278,11 +276,8 @@ void NowPlay::castFile()
   else
   {
     m_files.clear();
-    m_tabWidget->setEnabled(true);
 
-    setProgress(0);
-    m_play->setText("Now Play!");
-    m_next->setEnabled(false);
+    resetState();
   }
 }
 
@@ -317,17 +312,11 @@ void NowPlay::onPlayButtonClicked()
 {
   if(m_process.state() == QProcess::ProcessState::Running)
   {
-    m_process.putChar('s');
-    m_process.putChar('q');
     m_process.kill();
     m_files.clear();
-    m_tabWidget->setEnabled(true);
 
-    setProgress(0);
-    m_play->setText("Now Play!");
-    m_next->setEnabled(false);
-    m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
-    m_icon->contextMenu()->actions().at(2)->setEnabled(false);
+    resetState();
+
     return;
   }
 
@@ -965,4 +954,16 @@ void NowPlay::dragEnterEvent(QDragEnterEvent *e)
   {
     e->acceptProposedAction();
   }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::resetState()
+{
+  setProgress(0);
+
+  m_tabWidget->setEnabled(true);
+  m_play->setText("Now Play!");
+  m_next->setEnabled(false);
+  m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
+  m_icon->contextMenu()->actions().at(2)->setEnabled(false);
 }

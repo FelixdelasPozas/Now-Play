@@ -195,6 +195,11 @@ class NowPlay
      */
     void setProgress(int value);
 
+    /** \brief Modifies the UI and resets the progress to 0.
+     *
+     */
+    void resetState();
+
     std::vector<Utils::FileInformation> m_files;         /** list of files being casted.      */
     QProcess                            m_process;       /** casting process.                 */
     QString                             m_winampPath;    /** WinAmp executable location.      */
