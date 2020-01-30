@@ -255,7 +255,7 @@ void NowPlay::castFile()
 
     setProgress(m_progress->value() + 1);
 
-    log(QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum()));
+    log(tr("Playing: ") + QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum()));
 
     QStringList arguments;
     arguments << QString::fromStdWString(filename.wstring());
@@ -513,7 +513,7 @@ void NowPlay::onPlayButtonClicked()
   }
   else
   {
-    QString message = QString("Base directory: <b>") + QString::fromStdWString(directory.wstring()) + tr("</b>");
+    QString message = QString("Base directory: <b>") + QDir::toNativeSeparators(QString::fromStdWString(directory.wstring())) + tr("</b>");
     log(message);
   }
 
