@@ -375,7 +375,7 @@ void NowPlay::onPlayButtonClicked()
 
   const bool isCopyMode = m_tabWidget->currentIndex() == 1;
 
-  boost::filesystem::path directory = m_baseDir->text().toStdWString();
+  boost::filesystem::path directory = QDir::fromNativeSeparators(m_baseDir->text()).toStdWString();
   auto validPaths = Utils::getSubdirectories(directory, isCopyMode);
 
   // Copy mode
@@ -577,7 +577,7 @@ void NowPlay::browseDir()
 
   auto newDirectory = QFileDialog::getExistingDirectory(this, title, dir);
 
-  if(!newDirectory.isEmpty()) widget->setText(newDirectory);
+  if(!newDirectory.isEmpty()) widget->setText(QDir::toNativeSeparators(newDirectory));
 
   if(origin) origin->setDown(false);
 }
