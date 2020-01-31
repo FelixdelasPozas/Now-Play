@@ -828,6 +828,9 @@ void NowPlay::setupTrayIcon()
 void NowPlay::onRestoreActionActivated()
 {
   m_icon->hide();
+
+  setProgress(m_progress->value());
+
   showNormal();
 }
 
@@ -941,6 +944,16 @@ void NowPlay::dropEvent(QDropEvent *e)
           m_files.push_back(std::move(f));
         };
         std::for_each(files.cbegin(), files.cend(), addFileToPlaylist);
+
+        if(m_progress->value() > 0)
+        {
+          // update the progress values.
+          const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
+          m_progress->setRange(0, count);
+          m_taskBarButton->progress()->setRange(0,  count);
+
+          setProgress(m_progress->value());
+        }
       }
     }
   }
