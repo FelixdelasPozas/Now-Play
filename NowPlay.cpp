@@ -949,8 +949,10 @@ void NowPlay::dropEvent(QDropEvent *e)
         {
           // update the progress values.
           const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
-          m_progress->setRange(0, count);
-          m_taskBarButton->progress()->setRange(0,  count);
+
+          // +1 takes into account the file currently playing.
+          m_progress->setRange(0, count + 1);
+          m_taskBarButton->progress()->setRange(0,  count + 1);
 
           setProgress(m_progress->value());
         }
