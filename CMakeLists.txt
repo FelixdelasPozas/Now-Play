@@ -1,5 +1,5 @@
 #
-# NOWPLAYING CMake configuration.
+# NOWPLAY CMake configuration.
 #
 project(NowPlay)
 

@@ -268,9 +268,12 @@ void NowPlay::castFile()
 
     if(m_icon->isVisible())
     {
-      m_icon->showMessage(QString::fromStdWString(filename.parent_path().filename().c_str()),
-                          QString::fromStdWString(filename.filename().c_str()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum()),
-                          QIcon(":/NowPlay/buttons.svg"), 7500);
+      const auto title   = QString::fromStdWString(filename.parent_path().filename().c_str());
+      const auto message = QString::fromStdWString(filename.filename().c_str()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum());
+
+      m_icon->showMessage(title, message, QIcon(":/NowPlay/buttons.svg"), 7500);
+
+      m_icon->setToolTip(title + tr("\n") + message);
     }
   }
   else
@@ -850,6 +853,7 @@ void NowPlay::showEvent(QShowEvent* e)
  {
     if(m_progress->value() != 0)
     {
+      m_taskBarButton->progress()->setVisible(true);
       m_taskBarButton->progress()->setValue(m_progress->value());
     }
     else
@@ -881,6 +885,8 @@ void NowPlay::setProgress(int value)
   {
     m_progress->setEnabled(false);
     if(!minimized) m_taskBarButton->progress()->setVisible(false);
+
+    m_icon->setToolTip(tr("Now Play!"));
   }
 }
 
