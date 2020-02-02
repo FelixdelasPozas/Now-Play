@@ -45,6 +45,7 @@
 #include <QAction>
 #include <QWinTaskbarProgress>
 #include <QMimeData>
+#include <QDebug>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -606,6 +607,14 @@ void NowPlay::log(const QString &message)
 //-----------------------------------------------------------------------------
 void NowPlay::keyPressEvent(QKeyEvent *e)
 {
+  if(e->key() == Qt::Key_Escape)
+  {
+    e->accept();
+    hide();
+    m_icon->show();
+    return;
+  }
+
   if(m_process.state() == QProcess::ProcessState::Running && m_castnow->isChecked())
   {
     QStringList arguments;
@@ -695,7 +704,6 @@ bool NowPlay::event(QEvent *event)
   {
     auto ke = static_cast<QKeyEvent *>(event);
     keyPressEvent(ke);
-
     return true;
   }
 
