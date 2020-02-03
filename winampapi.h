@@ -39,6 +39,7 @@ namespace WinAmp
   // WinAmp WM_COMMAND & structs
   const int IPC_GETVERSION = 0;
   const int IPC_PLAYFILE   = 100;
+  const int IPC_PLAYFILEW  = 1100;
   const int IPC_DELETE     = 101;
   const int IPC_STARTPLAY  = 102;
 
@@ -50,36 +51,47 @@ namespace WinAmp
     auto handler = FindWindow("Winamp v1.x",nullptr);
     QFileInfo fi(winampPath);
 
-    if(!handler && !fi.exists() && winampPath.endsWith("winamp.exe", Qt::CaseInsensitive))
+    if(!handler)
     {
-      STARTUPINFOA info = { sizeof(STARTUPINFOA) };
-      PROCESS_INFORMATION processInfo;
-      if (CreateProcessA(0, const_cast<char *>(winampPath.toStdString().c_str()), 0, 0, 0, DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, 0, 0, &info, &processInfo))
+      if(fi.exists() && winampPath.endsWith("winamp.exe", Qt::CaseInsensitive))
       {
-        CloseHandle(processInfo.hProcess);
-        CloseHandle(processInfo.hThread);
-
-        int i = 0;
-        while(!handler && i < 10)
+        STARTUPINFOA info = { sizeof(STARTUPINFOA) };
+        PROCESS_INFORMATION processInfo;
+        if (CreateProcessA(0, const_cast<char *>(winampPath.toStdString().c_str()), 0, 0, 0, DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, 0, 0, &info, &processInfo))
         {
-          sleep(1);
-          handler = FindWindow("Winamp v1.x",nullptr);
-          ++i;
+          CloseHandle(processInfo.hProcess);
+          CloseHandle(processInfo.hThread);
+
+          std::cout << "Launched WinAmp. Waiting";
+
+          int i = 0;
+          while(!handler && i < 10)
+          {
+            sleep(1);
+            std::cout << ".";
+            handler = FindWindow("Winamp v1.x",nullptr);
+            ++i;
+          }
+          std::cout << std::endl;
+        }
+        else
+        {
+          auto error = GetLastError();
+
+          LPSTR messageBuffer = nullptr;
+          size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                       nullptr, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, nullptr);
+
+          std::string message(messageBuffer, size);
+
+          std::cout << "error code: " << error << " message: " << message << std::endl;
+
+          LocalFree(messageBuffer);
         }
       }
       else
       {
-        auto error = GetLastError();
-
-        LPSTR messageBuffer = nullptr;
-        size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                                     nullptr, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, nullptr);
-
-        std::string message(messageBuffer, size);
-
-        std::cout << "error code: " << error << " message: " << message << std::endl;
-
-        LocalFree(messageBuffer);
+        std::cout << "Invalid Winamp command line path." << std::endl;
       }
     }
 
@@ -87,7 +99,7 @@ namespace WinAmp
     {
       auto version = SendMessage(handler, WM_USER, 0, WinAmp::IPC_GETVERSION);
 
-      std::cout << "Detected Winamp " << std::hex << ((version & 0x0000FF00) >> 12) << "." << (version & 0x000000FF) << std::endl;
+      std::cout << "Detected Winamp " << std::hex << ((version & 0x0000FF00) >> 12) << "." << (version & 0x000000FF) << std::dec << std::endl;
     }
 
     return handler;
@@ -112,11 +124,11 @@ namespace WinAmp
     if(handler && !file.empty())
     {
       COPYDATASTRUCT pl = {0};
-      pl.dwData = IPC_PLAYFILE;
-      pl.lpData = (void*)file.c_str();
-      pl.cbData = lstrlenW((wchar_t*)pl.lpData)+1;
+      pl.dwData = IPC_PLAYFILEW;
+      pl.lpData = (void*)file.data();
+      pl.cbData = sizeof(wchar_t)*(wcslen(file.data())+1);
 
-      SendMessage(handler ,WM_COPYDATA,0,(LPARAM)&pl);
+      SendMessage(handler, WM_COPYDATA,0,(LPARAM)&pl);
     }
   };
 

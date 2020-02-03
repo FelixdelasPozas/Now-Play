@@ -178,7 +178,8 @@ void NowPlay::callWinamp()
   auto it = std::find_if(m_files.cbegin(), m_files.cend(), isPlaylist);
   if(it != m_files.cend())
   {
-    WinAmp::addFile(handler, (*it).first.wstring());
+    const auto filename = QString::fromStdWString((*it).first.wstring());
+    WinAmp::addFile(handler, QDir::toNativeSeparators(filename).toStdWString());
   }
   else
   {
@@ -186,7 +187,8 @@ void NowPlay::callWinamp()
     {
       if(Utils::isAudioFile(f.first))
       {
-        WinAmp::addFile(handler, f.first.wstring());
+        const auto filename = QString::fromStdWString(f.first.wstring());
+        WinAmp::addFile(handler, QDir::toNativeSeparators(filename).toStdWString());
         return true;
       }
 
@@ -225,7 +227,7 @@ void NowPlay::playVideos()
   };
   std::for_each(m_files.cbegin(), m_files.cend(), addToArguments);
 
-  m_process.start(m_smplayerPath, arguments);
+  m_process.startDetached(m_smplayerPath, arguments);
 
   m_files.clear();
 }
