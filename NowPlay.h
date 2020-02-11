@@ -22,6 +22,7 @@
 
 // Project
 #include <ui_NowPlayDialog.h>
+#include <CopyThread.h>
 #include <Utils.h>
 
 // Qt
@@ -118,6 +119,23 @@ class NowPlay
      */
     void onRestoreActionActivated();
 
+    /** \brief Writes the message to the log.
+     * \param[in] message Text message.
+     *
+     */
+    void log(const QString &message);
+
+    /** \brief Reports the result of the copy thread.
+     *
+     */
+    void onCopyFinished();
+
+    /** \brief Sets the progress in the various widgets.
+     * \param[in] value Progress value.
+     *
+     */
+    void setProgress(const int value);
+
   protected:
     virtual bool event(QEvent *e) override;
 
@@ -167,12 +185,6 @@ class NowPlay
      */
     void playVideos();
 
-    /** \brief Writes the message to the log.
-     * \param[in] message Text message.
-     *
-     */
-    void log(const QString &message);
-
     /** \brief Helper method that updates the GUI in constructor according to the application settings.
      *
      */
@@ -189,12 +201,6 @@ class NowPlay
      */
     void setupTrayIcon();
 
-    /** \brief Sets the progress in the various widgets.
-     * \param[in] value Progress value.
-     *
-     */
-    void setProgress(int value);
-
     /** \brief Modifies the UI and resets the progress to 0.
      *
      */
@@ -207,6 +213,7 @@ class NowPlay
     QString                             m_castnowPath;   /** Castnow script location.         */
     QSystemTrayIcon                    *m_icon;          /** application icon when minimized. */
     QWinTaskbarButton                  *m_taskBarButton; /** taskbar progress widget.         */
+    std::shared_ptr<CopyThread>         m_thread;        /** Copy thread if copying or null.  */
 };
 
 

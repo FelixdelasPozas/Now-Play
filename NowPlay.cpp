@@ -73,6 +73,7 @@ NowPlay::NowPlay()
 , m_process{this}
 , m_icon   {new QSystemTrayIcon(QIcon(":/NowPlay/buttons.svg"), this)}
 , m_taskBarButton{nullptr}
+, m_thread {nullptr}
 {
   setWindowFlags(Qt::WindowFlags() & Qt::Dialog & Qt::WindowMinimizeButtonHint & ~Qt::WindowContextHelpButtonHint);
 
@@ -158,7 +159,6 @@ void NowPlay::saveSettings()
   settings.sync();
 }
 
-
 //-----------------------------------------------------------------------------
 void NowPlay::callWinamp()
 {
@@ -198,7 +198,7 @@ void NowPlay::callWinamp()
 
     if(count == 0)
     {
-      const auto message = tr("No files found in directory: ") + QString::fromStdWString(m_files.front().first.parent_path().wstring());
+      const auto message = tr("No playable files found in directory: ") + QString::fromStdWString(m_files.front().first.parent_path().wstring());
       showErrorMessage(message);
       return;
     }
@@ -387,6 +387,23 @@ void NowPlay::onPlayButtonClicked()
   // Copy mode
   if(isCopyMode)
   {
+    if(m_thread)
+    {
+      QMessageBox msgBox(this);
+      msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
+      msgBox.setWindowTitle(tr("Now Play!"));
+      msgBox.setText(tr("Already copying files! Do you want to stop the process?"));
+      msgBox.setIcon(QMessageBox::Icon::Information);
+      msgBox.setStandardButtons(QMessageBox::Button::No|QMessageBox::Button::Yes);
+
+      if(QMessageBox::Button::Yes == msgBox.exec())
+      {
+        if(m_thread) m_thread->stop();
+      }
+
+      return;
+    }
+
     const auto destination = m_destinationDir->text().toStdWString();
     bool ok = false;
     auto size = m_amount->currentText().toInt(&ok, 10);
@@ -397,9 +414,9 @@ void NowPlay::onPlayButtonClicked()
       return;
     }
 
-    if (destination.empty() || !filesystem::exists(destination))
+    if(destination.empty() || !filesystem::exists(destination) || !filesystem::is_directory(destination))
     {
-      showErrorMessage(tr("Invalid destination directory."));
+      showErrorMessage(tr("No destination directory to copy to."));
       return;
     }
 
@@ -427,57 +444,21 @@ void NowPlay::onPlayButtonClicked()
 
     auto selectedDirs = Utils::getCopyDirectories(validPaths, size);
 
-    unsigned long long accumulator = 0L;
-    auto printInfo = [&accumulator, this](const Utils::FileInformation &f)
+    if(!selectedDirs.empty())
     {
-      QString message = tr("Selected: ") + QString::fromStdWString(f.first.filename().wstring()) + " (" + QString::number(f.second) + ")";
-      log(message);
+      m_thread = std::make_shared<CopyThread>(selectedDirs, destination, this);
 
-      accumulator += f.second;
-    };
-    std::for_each(selectedDirs.cbegin(), selectedDirs.cend(), printInfo);
+      connect(m_thread.get(), SIGNAL(log(const QString &)), this, SLOT(log(const QString &)));
+      connect(m_thread.get(), SIGNAL(progress(const int)), this, SLOT(setProgress(const int)));
+      connect(m_thread.get(), SIGNAL(finished()), this, SLOT(onCopyFinished()));
 
-    message = tr("Total bytes ") + QString::number(accumulator) + " in " + QString::number(selectedDirs.size()) + " directories, remaining to limit " + QString::number(size - accumulator) + " bytes.";
-    log(message);
-
-    if (!selectedDirs.empty())
-    {
-      if(destination.empty() || !filesystem::exists(destination) || !filesystem::is_directory(destination))
-      {
-        showErrorMessage(tr("No destination directory to copy to."));
-        return;
-      }
-
-      log(tr("Copying directories..."));
-      m_play->setEnabled(false);
-
+      m_play->setText("Stop");
+      m_tabWidget->setEnabled(false);
       QApplication::setOverrideCursor(Qt::WaitCursor);
 
-      int i = 0;
-      setProgress(0);
-      for(auto dir: selectedDirs)
-      {
-        setProgress((100*i)/selectedDirs.size());
-        m_taskBarButton->progress()->setValue(m_progress->value());
+      m_thread->start();
 
-        if(!Utils::copyDirectory(dir.first.string(), destination))
-        {
-          const QString message = QString("Error while copying files of directory: ") + QString::fromStdWString(dir.first.wstring());
-          QApplication::restoreOverrideCursor();
-          m_play->setEnabled(true);
-          showErrorMessage(message, tr("Copy error"));
-          return;
-        }
-
-        ++i;
-      }
-
-      QApplication::restoreOverrideCursor();
-
-      setProgress(100);
-      m_taskBarButton->progress()->setValue(100);
-
-      m_play->setEnabled(true);
+      return;
     }
     else
     {
@@ -874,7 +855,7 @@ void NowPlay::showEvent(QShowEvent* e)
 }
 
 //-----------------------------------------------------------------
-void NowPlay::setProgress(int value)
+void NowPlay::setProgress(const int value)
 {
   const auto minimized = isMinimized();
 
@@ -896,7 +877,7 @@ void NowPlay::setProgress(int value)
     m_progress->setEnabled(false);
     if(!minimized) m_taskBarButton->progress()->setVisible(false);
 
-    m_icon->setToolTip(tr("Now Play!"));
+    m_icon->setToolTip((m_tabWidget->currentIndex() == 0) ? tr("Now Play!") : tr("Now Copy!"));
   }
 }
 
@@ -997,4 +978,39 @@ void NowPlay::resetState()
   m_next->setEnabled(false);
   m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
   m_icon->contextMenu()->actions().at(2)->setEnabled(false);
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::onCopyFinished()
+{
+  auto thread = qobject_cast<CopyThread *>(sender());
+  if(thread)
+  {
+    QApplication::restoreOverrideCursor();
+    m_tabWidget->setEnabled(true);
+    m_play->setText(tr("Now Copy!"));
+    setProgress(0);
+
+    auto error = thread->errorMessage();
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
+    msgBox.setWindowTitle(tr("Now Play!"));
+
+    if(!error.isEmpty())
+    {
+      msgBox.setText(error);
+      msgBox.setIcon(QMessageBox::Icon::Critical);
+    }
+    else
+    {
+      msgBox.setText(tr("Copy finished!"));
+      msgBox.setIcon(QMessageBox::Icon::Information);
+    }
+
+    msgBox.setStandardButtons(QMessageBox::Button::Ok);
+    msgBox.exec();
+
+    m_thread = nullptr;
+  }
 }
