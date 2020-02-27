@@ -55,7 +55,8 @@ bool Utils::isVideoFile(const boost::filesystem::path &path)
   auto extension = path.extension().string();
   boost::algorithm::to_lower(extension);
 
-  return boost::filesystem::is_regular_file(path) && (extension.compare(".mp4") == 0 || extension.compare(".mkv") == 0);
+  return boost::filesystem::is_regular_file(path) &&
+         (extension.compare(".mp4") == 0 || extension.compare(".mkv") == 0 || extension.compare(".webm") == 0);
 }
 
 //-----------------------------------------------------------------------------

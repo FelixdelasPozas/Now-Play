@@ -74,5 +74,5 @@ target_link_libraries(nowplay ${LIBRARIES})
 qt5_use_modules(nowplay Widgets)
 
 add_custom_target(buildNumberDependency
-                  COMMAND ${CMAKE_COMMAND} -P "${CMAKE_SOURCE_DIR}/buildnumber.cmake")
+                  COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/buildnumber.cmake)
 add_dependencies(nowplay buildNumberDependency)
