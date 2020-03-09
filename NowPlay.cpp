@@ -254,6 +254,13 @@ void NowPlay::castFile()
     const auto filename = (*file).first;
     m_files.erase(file);
 
+    const auto hasMoreFiles = !m_files.empty();
+
+    m_play->setText("Stop");
+    m_next->setEnabled(hasMoreFiles);
+    m_icon->contextMenu()->actions().at(1)->setText("Stop");
+    m_icon->contextMenu()->actions().at(2)->setEnabled(hasMoreFiles);
+
     setProgress(m_progress->value() + 1);
 
     log(tr("Playing: ") + QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum()));
@@ -348,11 +355,6 @@ void NowPlay::onPlayButtonClicked()
           if(m_castnow->isChecked())
           {
             const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
-
-            m_play->setText("Stop");
-            m_next->setEnabled(count > 1);
-            m_icon->contextMenu()->actions().at(1)->setText("Stop");
-            m_icon->contextMenu()->actions().at(2)->setEnabled(count > 1);
 
             m_progress->setRange(0, count);
             m_taskBarButton->progress()->setRange(0,  count);
@@ -508,11 +510,6 @@ void NowPlay::onPlayButtonClicked()
       if(m_castnow->isChecked())
       {
         const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
-
-        m_play->setText("Stop");
-        m_next->setEnabled(count > 1);
-        m_icon->contextMenu()->actions().at(1)->setText("Stop");
-        m_icon->contextMenu()->actions().at(2)->setEnabled(count > 1);
 
         m_progress->setRange(0, count);
         m_taskBarButton->progress()->setRange(0,  count);

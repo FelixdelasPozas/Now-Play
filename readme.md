@@ -20,7 +20,7 @@ Optionally, given a limit size and a destination will copy a random selection of
 ## Input file formats
 The following file formats are detected and supported by the tool as input files:
 * **Audio formats**: mp3, m3u playlist, m3u8 playlist.
-* **Video formats**: mp4, mkv.
+* **Video formats**: mp4, mkv, webm.
 
 # Compilation requirements
 ## To build the tool:
@@ -62,7 +62,7 @@ Settings configuration dialog. If any of the applications is not present playing
 
 | Language                     |files          |blank        |comment           |code   |
 |:-----------------------------|--------------:|------------:|-----------------:|------:|
-| C++                          |    6          |  294        |    167           | 1083  |
+| C++                          |    6          |  294        |    167           | 1080  |
 | C/C++ Header                 |    6          |  125        |    315           |  241  |
 | CMake                        |    2          |   20        |     18           |   66  |
-| **Total**                    |   **14**      |  **439**    |   **500**        |**1390**|
+| **Total**                    |   **14**      |  **439**    |   **500**        |**1387**|
