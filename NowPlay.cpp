@@ -254,7 +254,7 @@ void NowPlay::castFile()
     const auto filename = (*file).first;
     m_files.erase(file);
 
-    const auto hasMoreFiles = !m_files.empty();
+    const auto hasMoreFiles = (!m_files.empty() && std::count_if(m_files.cbegin(), m_files.cend(), isValidFile) > 0);
 
     m_play->setText("Stop");
     m_next->setEnabled(hasMoreFiles);
@@ -263,7 +263,7 @@ void NowPlay::castFile()
 
     setProgress(m_progress->value() + 1);
 
-    log(tr("Playing: ") + QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum()));
+    log(tr("Playing %1/%2:").arg(m_progress->value()).arg(m_progress->maximum()) + QString::fromStdWString(filename.filename().wstring()));
 
     QStringList arguments;
     arguments << QString::fromStdWString(filename.wstring());
