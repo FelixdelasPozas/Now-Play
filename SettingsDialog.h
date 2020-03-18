@@ -61,7 +61,7 @@ class SettingsDialog
      *
      */
     const QString getSmplayerLocation() const
-    { return m_smplayerPath->text(); }
+    { return m_videoPlayerPath->text(); }
 
     /** \brief Returns the location of the WinAmp executable.
      *

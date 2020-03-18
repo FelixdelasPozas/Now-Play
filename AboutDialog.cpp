@@ -31,10 +31,9 @@
 
 //-----------------------------------------------------------------------------
 AboutDialog::AboutDialog(QWidget* parent)
-: QDialog(parent)
+: QDialog{parent}
 {
   setWindowFlag(Qt::WindowContextHelpButtonHint, 0);
-
   setupUi(this);
 
   m_qtVersion->setText(tr("version %1").arg(qVersion()));
@@ -47,4 +46,3 @@ AboutDialog::AboutDialog(QWidget* parent)
 
   m_compilationDate->setText(tr("Compiled on ") + compilation_date + compilation_time + " build " + QString::number(BUILD_NUMBER));
 }
-

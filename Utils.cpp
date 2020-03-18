@@ -22,11 +22,13 @@
 
 // Boost
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
 
 // C++
 #include <numeric>
 #include <random>
+#include <chrono>
 
 // Qt
 #include <QFileInfo>
@@ -66,10 +68,10 @@ std::vector<Utils::FileInformation> Utils::getPlayableFiles(const boost::filesys
 
   if(!directory.empty() && boost::filesystem::is_directory(directory))
   {
-    for(boost::filesystem::directory_entry &it: boost::filesystem::directory_iterator(directory))
+    for(const auto &it: boost::make_iterator_range(boost::filesystem::recursive_directory_iterator{directory},{}))
     {
       const auto name = it.path();
-      if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
+      if(name.filename().string().compare(".") == 0 || name.filename().string().compare("..") == 0) continue;
 
       if(Utils::isAudioFile(name) || Utils::isVideoFile(name) || Utils::isPlaylistFile(name))
       {
@@ -90,10 +92,10 @@ std::vector<Utils::FileInformation> Utils::getSubdirectories(const boost::filesy
 
   if(!directory.empty() && boost::filesystem::is_directory(directory))
   {
-    for(boost::filesystem::directory_entry &it: boost::filesystem::directory_iterator(directory))
+    for(const auto &it: boost::make_iterator_range(boost::filesystem::recursive_directory_iterator{directory},{}))
     {
       const auto name = it.path();
-      if(name.filename_is_dot() || name.filename_is_dot_dot()) continue;
+      if(name.filename().string().compare(".") == 0 || name.filename().string().compare("..") == 0) continue;
 
       if(boost::filesystem::is_directory(it))
       {
@@ -214,12 +216,12 @@ bool Utils::checkIfValidWinAmpLocation(const QString &location)
 }
 
 //-----------------------------------------------------------------------------
-bool Utils::checkIfValidSMPlayerLocation(const QString &location)
+bool Utils::checkIfValidVideoPlayerLocation(const QString &location)
 {
   if(!location.isEmpty())
   {
     QFileInfo file(location);
-    return location.endsWith("smplayer.exe", Qt::CaseInsensitive) && file.exists();
+    return file.exists() && (location.endsWith("smplayer.exe", Qt::CaseInsensitive) || location.endsWith("totem", Qt::CaseInsensitive));
   }
 
   return false;
@@ -231,7 +233,7 @@ bool Utils::checkIfValidCastnowLocation(const QString &location)
   if(!location.isEmpty())
   {
     QFileInfo file(location);
-    return location.endsWith("castnow.cmd", Qt::CaseInsensitive) && file.exists();
+    return file.exists() && (location.endsWith("castnow.cmd", Qt::CaseInsensitive) || location.endsWith("castnow", Qt::CaseInsensitive));
   }
 
   return false;

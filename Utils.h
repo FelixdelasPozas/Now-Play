@@ -89,11 +89,11 @@ namespace Utils
    */
   bool checkIfValidWinAmpLocation(const QString &location);
 
-  /** \brief Helper method to check if SMPlayer location is valid.
-   * \param[in] location SMPlayer location on disk.
+  /** \brief Helper method to check if video player location is valid.
+   * \param[in] location Video player location on disk.
    *
    */
-  bool checkIfValidSMPlayerLocation(const QString &location);
+  bool checkIfValidVideoPlayerLocation(const QString &location);
 
   /** \brief Helper method to check if Castnow location is valid.
    * \param[in] location Castnow location on disk.

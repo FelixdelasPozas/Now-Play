@@ -13,17 +13,24 @@ set (NOWPLAY_VERSION_PATCH 0)
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# Manually setting Boost because the CMake script is pure shit
-set(Boost_INCLUDE_DIR "D:/Desarrollo/Bibliotecas/boost_1_72_0")
-set(Boost_LIBRARIES "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/program_options/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_program_options-mgw82-mt-x64-1_72.a"
-                    "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/filesystem/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_filesystem-mgw82-mt-x64-1_72.a")
-                    
+if(MINGW OR MSVC)
+    # Manually setting Boost because the CMake script is pure shit
+    set(Boost_INCLUDE_DIRS "D:/Desarrollo/Bibliotecas/boost_1_72_0")
+    set(Boost_LIBRARIES "D:/Desarrollo/Bibliotecas/boost_1_72_0/bin.v2/libs/filesystem/build/gcc-8.2.0/release/link-static/threading-multi/visibility-hidden/libboost_filesystem-mgw82-mt-x64-1_72.a")
+
+    set(QT_EXTRAS WinExtras)
+    set(LIBRARIES Qt5::WinExtras)
+    set(CXX_ADDITIONAL -mwindows)
+else(MINGW OR MSVC)
+    find_package(Boost COMPONENTS filesystem)    
+endif(MINGW OR MSVC)
+
 # Find the Qt 5 lib.
-find_package(Qt5 COMPONENTS Widgets WinExtras)
+find_package(Qt5 COMPONENTS Widgets ${QT_EXTRAS})
 add_definitions(${Qt5Widgets_DEFINITIONS})            
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Qt5Widgets_EXECUTABLE_COMPILE_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated -mwindows -m64")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated -m64 -DBOOST_NO_CXX11_SCOPED_ENUMS ${CXX_ADDITIONAL}")
 
 # Instruct CMake to run moc automatically when needed.
 set(CMAKE_AUTOMOC ON)
@@ -33,10 +40,12 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
   set(CORE_EXTERNAL_LIBS ${CORE_EXTERNAL_LIBS} ${QT_QTTEST_LIBRARY})
 endif (CMAKE_BUILD_TYPE MATCHES Debug)
 
-configure_file("${PROJECT_SOURCE_DIR}/resources.rc.in" "${PROJECT_BINARY_DIR}/resources.rc")
-set(CORE_SOURCES ${CORE_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/resources.rc)
-set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff -o <OBJECT> -i <SOURCE>")
-enable_language(RC)
+if (MINGW OR MSVC)
+    configure_file("${PROJECT_SOURCE_DIR}/resources.rc.in" "${PROJECT_BINARY_DIR}/resources.rc")
+    set(CORE_SOURCES ${CORE_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/resources.rc)
+    set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff -o <OBJECT> -i <SOURCE>")
+    enable_language(RC)
+endif(MINGW OR MSVC)
 
 include_directories(
   ${CMAKE_SOURCE_DIR}
@@ -44,7 +53,7 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_BINARY_DIR}          # Generated .h files
   ${CMAKE_CURRENT_BINARY_DIR}  # For wrap/ui files
-  ${Boost_INCLUDE_DIR}
+  ${Boost_INCLUDE_DIRS}
   ${Qt5Widgets_INCLUDE_DIRS}
   )
 
@@ -65,8 +74,8 @@ set(SOURCES
 
 set(LIBRARIES
   ${Boost_LIBRARIES}
+  ${LIBRARIES}
   Qt5::Widgets
-  Qt5::WinExtras
 )
 
 add_executable(nowplay ${SOURCES})

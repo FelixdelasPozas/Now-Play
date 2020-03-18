@@ -24,8 +24,6 @@
 #include <QDialog>
 #include "ui_AboutDialog.h"
 
-class QKeyEvent;
-
 /** \class AboutDialog
  * \brief Implements the ego-centric dialog.
  *

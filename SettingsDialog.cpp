@@ -26,18 +26,17 @@
 
 //-----------------------------------------------------------------------------
 SettingsDialog::SettingsDialog(const QString &winampPath, const QString &smplayerPath, const QString &castnowPath, QWidget *parent)
-: QDialog(parent)
+: QDialog{parent}
 {
-  setWindowFlag(Qt::WindowContextHelpButtonHint, 0);
-
+  setWindowFlag(Qt::WindowContextHelpButtonHint,0);
   setupUi(this);
 
   m_winampPath->setText(QDir::toNativeSeparators(winampPath));
   m_castnowPath->setText(QDir::toNativeSeparators(castnowPath));
-  m_smplayerPath->setText(QDir::toNativeSeparators(smplayerPath));
+  m_videoPlayerPath->setText(QDir::toNativeSeparators(smplayerPath));
 
   connect(m_winampBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
-  connect(m_smplayerBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
+  connect(m_videoPlayerBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
   connect(m_castnowBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
 }
 
@@ -58,10 +57,10 @@ void SettingsDialog::onBrowseButtonClicked()
   }
   else
   {
-    if(button == m_smplayerBrowse)
+    if(button == m_videoPlayerBrowse)
     {
       title = tr("SMPlayer Executable Location");
-      path = m_smplayerPath->text();
+      path = m_videoPlayerPath->text();
       filter = tr("Executables (*.exe)");
     }
     else
@@ -72,11 +71,15 @@ void SettingsDialog::onBrowseButtonClicked()
     }
   }
 
+#ifndef __WIN64__
+  filter = QString();
+#endif
+
   const auto file = QFileDialog::getOpenFileName(this, title, path, filter, &filter, QFileDialog::Option::ReadOnly);
   if(!file.isEmpty())
   {
     if(button == m_winampBrowse) m_winampPath->setText(QDir::toNativeSeparators(file));
-    else if(button == m_smplayerBrowse) m_smplayerPath->setText(QDir::toNativeSeparators(file));
+    else if(button == m_videoPlayerBrowse) m_videoPlayerPath->setText(QDir::toNativeSeparators(file));
     else m_castnowPath->setText(QDir::toNativeSeparators(file));
   }
 }

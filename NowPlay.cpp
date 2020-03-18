@@ -23,12 +23,10 @@
 #include <vector>
 #include <string>
 #include <chrono>
-#include <windef.h>
 
 // Project
 #include "NowPlay.h"
 #include "version.h"
-#include "winampapi.h"
 #include "AboutDialog.h"
 #include "SettingsDialog.h"
 
@@ -43,13 +41,19 @@
 #include <QString>
 #include <QMenu>
 #include <QAction>
-#include <QWinTaskbarProgress>
 #include <QMimeData>
-#include <QDebug>
+#include <QStringList>
 
 // Boost
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+
+// Win64 builds
+#ifdef __WIN64__
+#include <windef.h>
+#include "winampapi.h"
+#include <QWinTaskbarProgress>
+#endif
 
 using namespace boost;
 
@@ -72,8 +76,10 @@ NowPlay::NowPlay()
 : QDialog  {nullptr}
 , m_process{this}
 , m_icon   {new QSystemTrayIcon(QIcon(":/NowPlay/buttons.svg"), this)}
-, m_taskBarButton{nullptr}
 , m_thread {nullptr}
+#ifdef __WIN64__
+, m_taskBarButton{nullptr}
+#endif
 {
   setWindowFlags(Qt::WindowFlags() & Qt::Dialog & Qt::WindowMinimizeButtonHint & ~Qt::WindowContextHelpButtonHint);
 
@@ -136,7 +142,7 @@ void NowPlay::loadSettings()
   onSubtitleSizeChanged(subtitleSize * 10);
 
   m_winampPath   = settings.value(WINAMP_LOC,   QDir::home().absolutePath()).toString();
-  m_smplayerPath = settings.value(SMPLAYER_LOC, QDir::home().absolutePath()).toString();
+  m_videoPlayerPath = settings.value(SMPLAYER_LOC, QDir::home().absolutePath()).toString();
   m_castnowPath  = settings.value(CASTNOW_LOC,  QDir::home().absolutePath()).toString();
 }
 
@@ -154,7 +160,7 @@ void NowPlay::saveSettings()
   settings.setValue(USESMPLAYER,  m_smplayer->isChecked());
   settings.setValue(SUBTITLESIZE, static_cast<double>(m_subtitleSizeSlider->value()/10.));
   settings.setValue(WINAMP_LOC,   m_winampPath);
-  settings.setValue(SMPLAYER_LOC, m_smplayerPath);
+  settings.setValue(SMPLAYER_LOC, m_videoPlayerPath);
   settings.setValue(CASTNOW_LOC,  m_castnowPath);
   settings.sync();
 }
@@ -162,8 +168,8 @@ void NowPlay::saveSettings()
 //-----------------------------------------------------------------------------
 void NowPlay::callWinamp()
 {
+#ifdef __WIN64__
   if(!Utils::checkIfValidWinAmpLocation(m_winampPath)) return;
-
   auto handler = WinAmp::getWinAmpHandle(m_winampPath);
 
   if(!handler)
@@ -207,12 +213,13 @@ void NowPlay::callWinamp()
   m_files.clear();
 
   WinAmp::startPlay(handler);
+#endif
 }
 
 //-----------------------------------------------------------------------------
 void NowPlay::playVideos()
 {
-  if(!Utils::checkIfValidSMPlayerLocation(m_smplayerPath)) return;
+  if(!Utils::checkIfValidVideoPlayerLocation(m_videoPlayerPath)) return;
 
   QStringList arguments;
   arguments << "-no-close-at-end";
@@ -227,7 +234,7 @@ void NowPlay::playVideos()
   };
   std::for_each(m_files.cbegin(), m_files.cend(), addToArguments);
 
-  m_process.startDetached(m_smplayerPath, arguments);
+  m_process.startDetached(m_videoPlayerPath, arguments);
 
   m_files.clear();
 }
@@ -263,7 +270,7 @@ void NowPlay::castFile()
 
     setProgress(m_progress->value() + 1);
 
-    log(tr("Playing %1/%2:").arg(m_progress->value()).arg(m_progress->maximum()) + QString::fromStdWString(filename.filename().wstring()));
+    log(tr("Playing %1/%2 - ").arg(m_progress->value()).arg(m_progress->maximum()) + QString::fromStdWString(filename.filename().wstring()));
 
     QStringList arguments;
     arguments << QString::fromStdWString(filename.wstring());
@@ -278,10 +285,14 @@ void NowPlay::castFile()
 
     if(m_icon->isVisible())
     {
-      const auto title   = QString::fromStdWString(filename.parent_path().filename().c_str());
-      const auto message = QString::fromStdWString(filename.filename().c_str()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum());
+      const auto title   = QString::fromStdWString(filename.parent_path().filename().wstring());
+      const auto message = QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum());
 
+#ifdef __WIN64__
       m_icon->showMessage(title, message, QIcon(":/NowPlay/buttons.svg"), 7500);
+#else
+      m_icon->showMessage(title, message, QSystemTrayIcon::Information, 7500);
+#endif
 
       m_icon->setToolTip(title + tr("\n") + message);
     }
@@ -325,10 +336,23 @@ void NowPlay::onPlayButtonClicked()
 {
   if(m_process.state() == QProcess::ProcessState::Running)
   {
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
+    m_process.blockSignals(true);
+
+    QProcess command(this);
+    command.start(m_castnowPath, QStringList{"--command","s","--exit"});
+    command.waitForFinished(-1);
+    command.start(m_castnowPath, QStringList{"--command","quit","--exit"});
+    command.waitForFinished(-1);
+
     m_process.kill();
+    m_process.blockSignals(false);
     m_files.clear();
 
     resetState();
+
+    QApplication::restoreOverrideCursor();
 
     return;
   }
@@ -356,8 +380,7 @@ void NowPlay::onPlayButtonClicked()
           {
             const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
 
-            m_progress->setRange(0, count);
-            m_taskBarButton->progress()->setRange(0,  count);
+            setProgressRange(0, count);
 
             setProgress(0);
 
@@ -511,8 +534,7 @@ void NowPlay::onPlayButtonClicked()
       {
         const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
 
-        m_progress->setRange(0, count);
-        m_taskBarButton->progress()->setRange(0,  count);
+        setProgressRange(0, count);
 
         setProgress(0);
 
@@ -668,12 +690,13 @@ void NowPlay::updateGUI()
 void NowPlay::checkApplications()
 {
   const auto validWinamp   = Utils::checkIfValidWinAmpLocation(m_winampPath);
-  const auto validSMPlayer = Utils::checkIfValidSMPlayerLocation(m_smplayerPath);
+  const auto validSMPlayer = Utils::checkIfValidVideoPlayerLocation(m_videoPlayerPath);
   const auto validCastnow  = Utils::checkIfValidCastnowLocation(m_castnowPath);
 
   m_winamp->setEnabled(validWinamp);
   m_smplayer->setEnabled(validSMPlayer);
   m_castnow->setEnabled(validCastnow);
+  m_subtitleSizeSlider->setEnabled(validCastnow);
 
   const auto isValid = validWinamp || validSMPlayer || validCastnow;
   m_play->setEnabled(isValid);
@@ -695,7 +718,7 @@ bool NowPlay::event(QEvent *event)
 //-----------------------------------------------------------------------------
 void NowPlay::onOuttputAvailable()
 {
-  const auto data = m_process.readAll().toStdString();
+  const auto data = QString(m_process.readAll()).toStdString();
   auto pos = data.find("Idle...");
   if(std::string::npos != pos)
   {
@@ -730,11 +753,11 @@ void NowPlay::playNext()
 //-----------------------------------------------------------------------------
 void NowPlay::onSettingsButtonClicked()
 {
-  SettingsDialog dialog(m_winampPath, m_smplayerPath, m_castnowPath, this);
+  SettingsDialog dialog(m_winampPath, m_videoPlayerPath, m_castnowPath, this);
   if(QDialog::Accepted == dialog.exec())
   {
     m_winampPath = dialog.getWinampLocation();
-    m_smplayerPath = dialog.getSmplayerLocation();
+    m_videoPlayerPath = dialog.getSmplayerLocation();
     m_castnowPath = dialog.getCastnowLocation();
 
     checkApplications();
@@ -832,6 +855,7 @@ void NowPlay::showEvent(QShowEvent* e)
 {
   QDialog::showEvent(e);
 
+#ifdef __WIN64__
   if(!m_taskBarButton)
   {
     m_taskBarButton = new QWinTaskbarButton(this);
@@ -851,33 +875,38 @@ void NowPlay::showEvent(QShowEvent* e)
       m_taskBarButton->progress()->setVisible(false);
     }
  }
+#endif
 }
 
 //-----------------------------------------------------------------
 void NowPlay::setProgress(const int value)
 {
-  const auto minimized = isMinimized();
-
   if(!m_progress->isEnabled() && value != 0)
   {
     m_progress->setEnabled(true);
   }
 
-  if(!minimized && !m_taskBarButton->progress()->isVisible() && value != 0)
-  {
-    m_taskBarButton->progress()->setVisible(true);
-  }
-
   m_progress->setValue(value);
-  if(!minimized) m_taskBarButton->progress()->setValue(value);
 
   if(value == 0)
   {
     m_progress->setEnabled(false);
-    if(!minimized) m_taskBarButton->progress()->setVisible(false);
 
     m_icon->setToolTip((m_tabWidget->currentIndex() == 0) ? tr("Now Play!") : tr("Now Copy!"));
   }
+
+#ifdef __WIN64__
+  if(!isMinimized())
+  {
+    if(!m_taskBarButton->progress()->isVisible() && value != 0)  m_taskBarButton->progress()->setVisible(true);
+    m_taskBarButton->progress()->setValue(value);
+  }
+
+  if(value == 0)
+  {
+    if(!isMinimized()) m_taskBarButton->progress()->setVisible(false);
+  }
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -947,8 +976,7 @@ void NowPlay::dropEvent(QDropEvent *e)
           const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
 
           // +1 takes into account the file currently playing.
-          m_progress->setRange(0, count + 1);
-          m_taskBarButton->progress()->setRange(0,  count + 1);
+          setProgressRange(0, count + 1);
 
           setProgress(m_progress->value());
         }
@@ -1012,4 +1040,13 @@ void NowPlay::onCopyFinished()
 
     m_thread = nullptr;
   }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::setProgressRange(const int minimum, const int maximum)
+{
+  m_progress->setRange(minimum, maximum);
+#ifdef __WIN64__
+  m_taskBarButton->progress()->setRange(minimum,  maximum);
+#endif
 }

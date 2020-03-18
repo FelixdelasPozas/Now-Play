@@ -29,7 +29,10 @@
 #include <QDialog>
 #include <QProcess>
 #include <QSystemTrayIcon>
+
+#ifdef __WIN64__
 #include <QWinTaskbarButton>
+#endif
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -136,6 +139,13 @@ class NowPlay
      */
     void setProgress(const int value);
 
+    /** \brief Helper method to set the range of the various progress widgets.
+     * \param[in] maximum Maximum range value.
+     * \param[in] minimum Minimum range value.
+     *
+     */
+    void setProgressRange(const int minimum, const int maximum);
+
   protected:
     virtual bool event(QEvent *e) override;
 
@@ -206,14 +216,16 @@ class NowPlay
      */
     void resetState();
 
-    std::vector<Utils::FileInformation> m_files;         /** list of files being casted.      */
-    QProcess                            m_process;       /** casting process.                 */
-    QString                             m_winampPath;    /** WinAmp executable location.      */
-    QString                             m_smplayerPath;  /** SMPlayer executable location.    */
-    QString                             m_castnowPath;   /** Castnow script location.         */
-    QSystemTrayIcon                    *m_icon;          /** application icon when minimized. */
-    QWinTaskbarButton                  *m_taskBarButton; /** taskbar progress widget.         */
-    std::shared_ptr<CopyThread>         m_thread;        /** Copy thread if copying or null.  */
+    std::vector<Utils::FileInformation> m_files;           /** list of files being casted.       */
+    QProcess                            m_process;         /** casting process.                  */
+    QString                             m_winampPath;      /** WinAmp executable location.       */
+    QString                             m_videoPlayerPath; /** Video player executable location. */
+    QString                             m_castnowPath;     /** Castnow script location.          */
+    QSystemTrayIcon                    *m_icon;            /** application icon when minimized.  */
+    std::shared_ptr<CopyThread>         m_thread;          /** Copy thread if copying or null.   */
+#ifdef __WIN64__
+    QWinTaskbarButton                  *m_taskBarButton;   /** taskbar progress widget.          */
+#endif
 };
 
 
