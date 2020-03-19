@@ -865,15 +865,7 @@ void NowPlay::showEvent(QShowEvent* e)
   }
   else
  {
-    if(m_progress->value() != 0)
-    {
-      m_taskBarButton->progress()->setVisible(true);
-      m_taskBarButton->progress()->setValue(m_progress->value());
-    }
-    else
-    {
-      m_taskBarButton->progress()->setVisible(false);
-    }
+    setProgress(m_progress->value());
  }
 #endif
 }
@@ -902,9 +894,9 @@ void NowPlay::setProgress(const int value)
     m_taskBarButton->progress()->setValue(value);
   }
 
-  if(value == 0)
+  if(value == 0 && !isMinimized())
   {
-    if(!isMinimized()) m_taskBarButton->progress()->setVisible(false);
+    m_taskBarButton->progress()->setVisible(false);
   }
 #endif
 }
@@ -950,6 +942,11 @@ void NowPlay::dropEvent(QDropEvent *e)
           {
             case QMessageBox::Button::Ok:
               m_files.clear();
+              if(m_process.state() == QProcess::Running)
+              {
+                setProgressRange(0, 1);
+                setProgress(1);
+              }
               break;
             case QMessageBox::Button::Cancel:
               e->accept();
@@ -970,14 +967,18 @@ void NowPlay::dropEvent(QDropEvent *e)
         };
         std::for_each(files.cbegin(), files.cend(), addFileToPlaylist);
 
-        if(m_progress->value() > 0)
+        auto isValidFile = [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); };
+        const auto validFilesCount = std::count_if(m_files.cbegin(), m_files.cend(), isValidFile);
+
+        const auto isCasting = (m_process.state() == QProcess::Running);
+        if(isCasting)
         {
-          // update the progress values.
-          const auto count = std::count_if(m_files.cbegin(), m_files.cend(), [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); });
+          const auto hasMoreFiles = (!m_files.empty() && validFilesCount > 0);
 
-          // +1 takes into account the file currently playing.
-          setProgressRange(0, count + 1);
+          m_next->setEnabled(hasMoreFiles);
+          m_icon->contextMenu()->actions().at(2)->setEnabled(hasMoreFiles);
 
+          setProgressRange(0, m_progress->maximum() + validFilesCount);
           setProgress(m_progress->value());
         }
       }
