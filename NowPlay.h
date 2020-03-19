@@ -216,8 +216,15 @@ class NowPlay
      */
     void resetState();
 
+    /** \brief Sets the given command to the currently casting process.
+     * \param[in] command Command text.
+     *
+     */
+    void sendCommand(const QString &command);
+
     std::vector<Utils::FileInformation> m_files;           /** list of files being casted.       */
     QProcess                            m_process;         /** casting process.                  */
+    QProcess                            m_command;         /** process for casting commands.     */
     QString                             m_winampPath;      /** WinAmp executable location.       */
     QString                             m_videoPlayerPath; /** Video player executable location. */
     QString                             m_castnowPath;     /** Castnow script location.          */

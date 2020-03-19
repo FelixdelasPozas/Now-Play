@@ -75,6 +75,7 @@ const unsigned long long MEGABYTE = 1024*1024;
 NowPlay::NowPlay()
 : QDialog  {nullptr}
 , m_process{this}
+, m_command{this}
 , m_icon   {new QSystemTrayIcon(QIcon(":/NowPlay/buttons.svg"), this)}
 , m_thread {nullptr}
 #ifdef __WIN64__
@@ -242,9 +243,13 @@ void NowPlay::playVideos()
 //-----------------------------------------------------------------------------
 void NowPlay::castFile()
 {
-  if(m_process.state() == QProcess::ProcessState::Running)
+  if(m_process.state() == QProcess::Running)
   {
+    sendCommand("s");
+    sendCommand("quit");
+
     m_process.kill();
+    m_process.waitForFinished(-1);
     m_files.clear();
 
     resetState();
@@ -334,20 +339,15 @@ void NowPlay::onTabChanged(int index)
 //-----------------------------------------------------------------------------
 void NowPlay::onPlayButtonClicked()
 {
-  if(m_process.state() == QProcess::ProcessState::Running)
+  if(m_process.state() == QProcess::Running)
   {
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
-    m_process.blockSignals(true);
-
-    QProcess command(this);
-    command.start(m_castnowPath, QStringList{"--command","s","--exit"});
-    command.waitForFinished(-1);
-    command.start(m_castnowPath, QStringList{"--command","quit","--exit"});
-    command.waitForFinished(-1);
+    sendCommand("s");
+    sendCommand("quit");
 
     m_process.kill();
-    m_process.blockSignals(false);
+    m_process.waitForFinished(-1);
     m_files.clear();
 
     resetState();
@@ -619,59 +619,48 @@ void NowPlay::keyPressEvent(QKeyEvent *e)
     return;
   }
 
-  if(m_process.state() == QProcess::ProcessState::Running && m_castnow->isChecked())
+  QString command;
+  switch(e->key())
   {
-    QStringList arguments;
-    arguments << "--command";
-
-    switch(e->key())
-    {
-      case Qt::Key_Up:
-        arguments << "up";
-        break;
-      case Qt::Key_Down:
-        arguments << "down";
-        break;
-      case Qt::Key_S:
-        arguments << "s";
-        break;
-      case Qt::Key_Q:
-        arguments << "quit";
-        break;
-      case Qt::Key_Left:
-        arguments << "left";
-        break;
-      case Qt::Key_Right:
-        arguments << "right";
-        break;
-      case Qt::Key_Space:
-        arguments << "space";
-        break;
-      case Qt::Key_M:
-        arguments << "m";
-        break;
-      case Qt::Key_T:
-        arguments << "t";
-        break;
-      default:
-        break;
-    }
-
-    // in case the key was not valid execute the default QDialog class method.
-    if(arguments.size() > 1)
-    {
-      arguments << "--exit";
-      e->accept();
-
-      QProcess command(this);
-      command.start(m_castnowPath, arguments);
-      command.waitForFinished(-1);
-
-      return;
-    }
+    case Qt::Key_Up:
+      command = "up";
+      break;
+    case Qt::Key_Down:
+      command = "down";
+      break;
+    case Qt::Key_S:
+      command = "s";
+      break;
+    case Qt::Key_Q:
+      command = "quit";
+      break;
+    case Qt::Key_Left:
+      command = "left";
+      break;
+    case Qt::Key_Right:
+      command = "right";
+      break;
+    case Qt::Key_Space:
+      command = "space";
+      break;
+    case Qt::Key_M:
+      command = "m";
+      break;
+    case Qt::Key_T:
+      command = "t";
+      break;
+    default:
+      break;
   }
 
-  QDialog::keyPressEvent(e);
+  if(!command.isEmpty())
+  {
+    sendCommand(command);
+  }
+  else
+  {
+    QDialog::keyPressEvent(e);
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -1050,4 +1039,14 @@ void NowPlay::setProgressRange(const int minimum, const int maximum)
 #ifdef __WIN64__
   m_taskBarButton->progress()->setRange(minimum,  maximum);
 #endif
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::sendCommand(const QString &command)
+{
+  if(!command.isEmpty() && m_castnow->isChecked() && (m_process.state() == QProcess::Running))
+  {
+    m_command.startDetached(m_castnowPath, QStringList{"--command", command,"--exit"});
+    m_command.waitForFinished(-1);
+  }
 }
