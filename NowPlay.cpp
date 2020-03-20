@@ -245,12 +245,16 @@ void NowPlay::castFile()
 {
   if(m_process.state() == QProcess::Running)
   {
+    m_process.blockSignals(true);
+
     sendCommand("s");
     sendCommand("quit");
 
     m_process.kill();
     m_process.waitForFinished(-1);
     m_files.clear();
+
+    m_process.blockSignals(false);
 
     resetState();
 
@@ -343,12 +347,16 @@ void NowPlay::onPlayButtonClicked()
   {
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
+    m_process.blockSignals(true);
+
     sendCommand("s");
     sendCommand("quit");
 
     m_process.kill();
     m_process.waitForFinished(-1);
     m_files.clear();
+
+    m_process.blockSignals(false);
 
     resetState();
 

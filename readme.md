@@ -62,7 +62,7 @@ Settings configuration dialog. If any of the applications is not present playing
 
 | Language                     |files          |blank        |comment           |code   |
 |:-----------------------------|--------------:|------------:|-----------------:|------:|
-| C++                          |    6          |  295        |    167           | 1119  |
+| C++                          |    6          |  299        |    167           | 1123  |
 | C/C++ Header                 |    6          |  127        |    324           |  247  |
 | CMake                        |    2          |   21        |     18           |   74  |
-| **Total**                    |   **14**      |  **443**    |   **509**        |**1440**|
+| **Total**                    |   **14**      |  **447**    |   **509**        |**1444**|
