@@ -49,7 +49,7 @@ Simple main dialog. Next button is only available while casting files to Chromec
 
 Settings configuration dialog. If any of the applications is not present playing for it will be disabled by the tool.
 
-![Configuration Dialog](https://user-images.githubusercontent.com/12167134/73141717-7b342900-4087-11ea-88b9-d844dac9b75a.jpg)
+![Configuration Dialog](https://user-images.githubusercontent.com/12167134/81506591-ae798b80-92f7-11ea-9a38-5d7a1b5b6a98.png)
 
 # Repository information
 **Version**: 2.4
@@ -66,9 +66,3 @@ Settings configuration dialog. If any of the applications is not present playing
 | C/C++ Header                 |    6          |  128        |    328           |  248  |
 | CMake                        |    2          |   21        |     18           |   75  |
 | **Total**                    |   **14**      |  **459**    |   **514**        |**1484**|
-
-C++                              6            310            168           1161
-C/C++ Header                     6            128            328            248
-CMake                            2             21             18             75
--------------------------------------------------------------------------------
-SUM:                            14            459            514           1484
