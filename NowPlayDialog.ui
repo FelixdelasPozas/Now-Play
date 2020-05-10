@@ -79,7 +79,7 @@
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_3">
        <item>
-        <layout class="QGridLayout" name="gridLayout" columnstretch="1,1,1,0">
+        <layout class="QGridLayout" name="gridLayout" columnstretch="0,1,1,0">
          <item row="0" column="0">
           <widget class="QRadioButton" name="m_winamp">
            <property name="minimumSize">
@@ -139,18 +139,6 @@
          </item>
          <item row="2" column="3">
           <widget class="QLabel" name="m_subtitleSizeLabel">
-           <property name="minimumSize">
-            <size>
-             <width>16</width>
-             <height>20</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16</width>
-             <height>20</height>
-            </size>
-           </property>
            <property name="text">
             <string>1.0</string>
            </property>

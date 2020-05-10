@@ -43,6 +43,8 @@
 #include <QAction>
 #include <QMimeData>
 #include <QStringList>
+#include <QFile>
+#include <QTextStream>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -68,6 +70,7 @@ const QString SUBTITLESIZE = "Subtitle Size";
 const QString WINAMP_LOC   = "WinAmp Location";
 const QString SMPLAYER_LOC = "SMPlayer Location";
 const QString CASTNOW_LOC  = "Castnow Location";
+const QString THEME        = "Application Theme";
 
 const unsigned long long MEGABYTE = 1024*1024;
 
@@ -145,6 +148,16 @@ void NowPlay::loadSettings()
   m_winampPath   = settings.value(WINAMP_LOC,   QDir::home().absolutePath()).toString();
   m_videoPlayerPath = settings.value(SMPLAYER_LOC, QDir::home().absolutePath()).toString();
   m_castnowPath  = settings.value(CASTNOW_LOC,  QDir::home().absolutePath()).toString();
+
+  const auto theme = settings.value(THEME, QString()).toString();
+
+  if(theme.compare("dark") == 0)
+  {
+    QFile file(":qdarkstyle/style.qss");
+    file.open(QFile::ReadOnly | QFile::Text);
+    QTextStream ts(&file);
+    qApp->setStyleSheet(ts.readAll());
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -163,6 +176,8 @@ void NowPlay::saveSettings()
   settings.setValue(WINAMP_LOC,   m_winampPath);
   settings.setValue(SMPLAYER_LOC, m_videoPlayerPath);
   settings.setValue(CASTNOW_LOC,  m_castnowPath);
+  settings.setValue(THEME,        qApp->styleSheet().isEmpty() ? QString():"dark");
+
   settings.sync();
 }
 
@@ -737,7 +752,8 @@ void NowPlay::onOuttputAvailable()
 //-----------------------------------------------------------------------------
 void NowPlay::onSubtitleSizeChanged(int value)
 {
-  m_subtitleSizeLabel->setText(QString::number(static_cast<double>(value/10.), 'e', 2));
+  auto numberText = QString::number(static_cast<double>(value/10.), 'e', 2);
+  m_subtitleSizeLabel->setText(numberText.mid(0,3));
 }
 
 //-----------------------------------------------------------------------------
@@ -750,6 +766,8 @@ void NowPlay::playNext()
 //-----------------------------------------------------------------------------
 void NowPlay::onSettingsButtonClicked()
 {
+  const auto theme = qApp->styleSheet();
+
   SettingsDialog dialog(m_winampPath, m_videoPlayerPath, m_castnowPath, this);
   if(QDialog::Accepted == dialog.exec())
   {
@@ -758,6 +776,10 @@ void NowPlay::onSettingsButtonClicked()
     m_castnowPath = dialog.getCastnowLocation();
 
     checkApplications();
+  }
+  else
+  {
+    qApp->setStyleSheet(theme);
   }
 }
 

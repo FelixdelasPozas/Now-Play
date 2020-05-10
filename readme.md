@@ -52,7 +52,7 @@ Settings configuration dialog. If any of the applications is not present playing
 ![Configuration Dialog](https://user-images.githubusercontent.com/12167134/73141717-7b342900-4087-11ea-88b9-d844dac9b75a.jpg)
 
 # Repository information
-**Version**: 2.3
+**Version**: 2.4
 
 **Status**: finished
 
@@ -62,7 +62,13 @@ Settings configuration dialog. If any of the applications is not present playing
 
 | Language                     |files          |blank        |comment           |code   |
 |:-----------------------------|--------------:|------------:|-----------------:|------:|
-| C++                          |    6          |  299        |    167           | 1123  |
-| C/C++ Header                 |    6          |  127        |    324           |  247  |
-| CMake                        |    2          |   21        |     18           |   74  |
-| **Total**                    |   **14**      |  **447**    |   **509**        |**1444**|
+| C++                          |    6          |  310        |    168           | 1161  |
+| C/C++ Header                 |    6          |  128        |    328           |  248  |
+| CMake                        |    2          |   21        |     18           |   75  |
+| **Total**                    |   **14**      |  **459**    |   **514**        |**1484**|
+
+C++                              6            310            168           1161
+C/C++ Header                     6            128            328            248
+CMake                            2             21             18             75
+-------------------------------------------------------------------------------
+SUM:                            14            459            514           1484

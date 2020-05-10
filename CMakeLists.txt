@@ -7,7 +7,7 @@ cmake_minimum_required (VERSION 2.8.6)
 
 # Version Number
 set (NOWPLAY_VERSION_MAJOR 2)
-set (NOWPLAY_VERSION_MINOR 3)
+set (NOWPLAY_VERSION_MINOR 4)
 set (NOWPLAY_VERSION_PATCH 0)
 
 # Find includes in corresponding build directories
@@ -59,6 +59,7 @@ include_directories(
 
 qt5_add_resources(RESOURCES
   rsc/resources.qrc
+  rsc/darktheme/style.qrc
 )
 
 set(SOURCES

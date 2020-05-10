@@ -23,6 +23,9 @@
 // Qt
 #include <QDir>
 #include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QStyle>
 
 //-----------------------------------------------------------------------------
 SettingsDialog::SettingsDialog(const QString &winampPath, const QString &smplayerPath, const QString &castnowPath, QWidget *parent)
@@ -38,6 +41,11 @@ SettingsDialog::SettingsDialog(const QString &winampPath, const QString &smplaye
   connect(m_winampBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
   connect(m_videoPlayerBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
   connect(m_castnowBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
+
+  const auto theme = qApp->styleSheet();
+  m_themeCombo->setCurrentIndex(theme.isEmpty() ? 0 : 1);
+
+  connect(m_themeCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(onStyleComboChanged(int)));
 }
 
 //-----------------------------------------------------------------------------
@@ -82,4 +90,24 @@ void SettingsDialog::onBrowseButtonClicked()
     else if(button == m_videoPlayerBrowse) m_videoPlayerPath->setText(QDir::toNativeSeparators(file));
     else m_castnowPath->setText(QDir::toNativeSeparators(file));
   }
+}
+
+//-----------------------------------------------------------------------------
+void SettingsDialog::onStyleComboChanged(int idx)
+{
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+
+  QString sheet;
+
+  if(idx != 0)
+  {
+    QFile file(":qdarkstyle/style.qss");
+    file.open(QFile::ReadOnly | QFile::Text);
+    QTextStream ts(&file);
+    sheet = ts.readAll();
+  }
+
+  qApp->setStyleSheet(sheet);
+
+  QApplication::restoreOverrideCursor();
 }

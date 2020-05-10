@@ -74,6 +74,12 @@ class SettingsDialog
      *
      */
     void onBrowseButtonClicked();
+
+    /** \brief Changes the application stylesheet when the user changes the styles combo box.
+     * \param[in] idx Combo current index value.
+     *
+     */
+    void onStyleComboChanged(int idx);
 };
 
 #endif // SETTINGSDIALOG_H_
