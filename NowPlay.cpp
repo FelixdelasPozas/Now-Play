@@ -307,19 +307,19 @@ void NowPlay::castFile()
     m_process.start(m_castnowPath, arguments, QProcess::Unbuffered|QProcess::ReadWrite);
     m_process.waitForStarted();
 
+    const auto title   = QString::fromStdWString(filename.parent_path().filename().wstring());
+    const auto message = QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum());
+	
     if(m_icon->isVisible())
     {
-      const auto title   = QString::fromStdWString(filename.parent_path().filename().wstring());
-      const auto message = QString::fromStdWString(filename.filename().wstring()) + tr(" (%1/%2)").arg(m_progress->value()).arg(m_progress->maximum());
-
 #ifdef __WIN64__
       m_icon->showMessage(title, message, QIcon(":/NowPlay/buttons.svg"), 7500);
 #else
       m_icon->showMessage(title, message, QSystemTrayIcon::Information, 7500);
 #endif
-
-      m_icon->setToolTip(title + tr("\n") + message);
     }
+	
+    m_icon->setToolTip(title + tr("\n") + message);
   }
   else
   {
