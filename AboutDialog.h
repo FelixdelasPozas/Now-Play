@@ -38,7 +38,7 @@ class AboutDialog
      * \param[in] flags Window flags.
      *
      */
-    explicit AboutDialog(QWidget *parent);
+    explicit AboutDialog(QWidget *parent, Qt::WindowFlags f = Qt::WindowFlags());
 
     /** \brief AboutDialog class virtual destructor.
      *

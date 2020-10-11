@@ -949,7 +949,7 @@ void NowPlay::dropEvent(QDropEvent *e)
           QMessageBox msgBox(this);
           msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
           msgBox.setWindowTitle(tr("Now Play!"));
-          msgBox.setText(tr("%1 files can be added to the playlist. Do you want to replace or merge with the current playlist?").arg(files.size()));
+          msgBox.setText(tr("The current playlist has %1 pending files, and %2 files can be added to the playlist.\nDo you want to replace or merge with the current playlist?").arg(m_files.size()).arg(files.size()));
           msgBox.setIcon(QMessageBox::Icon::Information);
           msgBox.setStandardButtons(QMessageBox::Button::Ok|QMessageBox::Button::Abort|QMessageBox::Button::Cancel);
           msgBox.button(QMessageBox::Button::Abort)->setText("Merge");
@@ -959,20 +959,20 @@ void NowPlay::dropEvent(QDropEvent *e)
 
           switch(button)
           {
-            case QMessageBox::Button::Ok:
-              m_files.clear();
-              if(m_process.state() == QProcess::Running)
-              {
-                setProgressRange(0, 1);
-                setProgress(1);
-              }
-              break;
             case QMessageBox::Button::Cancel:
               e->accept();
               return;
               break;
+            case QMessageBox::Button::Ok: // Replace
+              m_files.clear();
+              if(m_process.state() == QProcess::Running)
+              {
+                setProgressRange(0, 1);
+                setProgress(1); // 1 -> file currently playing to take into consideration later to compute total progress limits.
+              }
+              break;
             default:
-            case QMessageBox::Button::Abort:
+            case QMessageBox::Button::Abort: // Merge
               break;
           }
         }
@@ -997,8 +997,9 @@ void NowPlay::dropEvent(QDropEvent *e)
           m_next->setEnabled(hasMoreFiles);
           m_icon->contextMenu()->actions().at(2)->setEnabled(hasMoreFiles);
 
-          setProgressRange(0, m_progress->maximum() + validFilesCount);
-          setProgress(m_progress->value());
+          const auto currentProgress =  m_progress->value();
+          setProgressRange(0, currentProgress + validFilesCount);
+          setProgress(currentProgress);
         }
       }
     }
