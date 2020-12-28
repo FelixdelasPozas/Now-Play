@@ -34,9 +34,6 @@
 #include <QWinTaskbarButton>
 #endif
 
-// Boost
-#include <boost/filesystem.hpp>
-
 class QKeyEvent;
 class QEvent;
 
@@ -210,6 +207,16 @@ class NowPlay
      *
      */
     void setupTrayIcon();
+
+    /** \brief Updates the tray icon depending on the current progress of the playlist.
+     *
+     */
+    void updateTrayIcon();
+
+    /** \brief Builds and returns the icon for the current playlist progress.
+     *
+     */
+    QIcon progressIcon();
 
     /** \brief Modifies the UI and resets the progress to 0.
      *

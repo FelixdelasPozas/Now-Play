@@ -25,10 +25,7 @@
 #include <QtGlobal>
 #include <QKeyEvent>
 
-// Boost
-#include <boost/version.hpp>
-
-const QString VERSION = "2.4.1";
+const QString VERSION = "2.5.0";
 
 
 //-----------------------------------------------------------------------------
@@ -43,8 +40,6 @@ AboutDialog::AboutDialog(QWidget* parent, Qt::WindowFlags f)
   auto compilation_date = QString(__DATE__);
   auto compilation_time = QString(" (") + QString(__TIME__) + QString(")");
 
-  const auto boostVersion = QString::number(BOOST_VERSION / 100000) + "." + QString::number(BOOST_VERSION / 100 % 1000) + "." + QString::number(BOOST_VERSION % 100);
-  m_boostVersion->setText(tr("version %1").arg(boostVersion));
   m_qtVersion->setText(tr("version %1").arg(qVersion()));
 
   m_compilationDate->setText(tr("Compiled on ") + compilation_date + compilation_time + " build " + QString::number(BUILD_NUMBER));

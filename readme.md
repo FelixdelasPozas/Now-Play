@@ -30,7 +30,6 @@ The following file formats are detected and supported by the tool as input files
 ## External dependencies:
 The following libraries are required to build the tool:
 * [Qt opensource framework](http://www.qt.io/).
-* [Boost libraries](https://www.boost.org/).
 
 The tool will need the following applications to play selected media:
 * [WinAmp](http://www.winamp.com/).
@@ -52,7 +51,7 @@ Settings configuration dialog. If any of the applications is not present playing
 ![Configuration Dialog](https://user-images.githubusercontent.com/12167134/81506591-ae798b80-92f7-11ea-9a38-5d7a1b5b6a98.png)
 
 # Repository information
-**Version**: 2.4.1
+**Version**: 2.5.0
 
 **Status**: finished
 
@@ -62,7 +61,7 @@ Settings configuration dialog. If any of the applications is not present playing
 
 | Language                     |files          |blank        |comment           |code   |
 |:-----------------------------|--------------:|------------:|-----------------:|------:|
-| C++                          |    6          |  311        |    168           | 1164  |
-| C/C++ Header                 |    6          |  128        |    328           |  248  |
-| CMake                        |    2          |   21        |     18           |   75  |
-| **Total**                    |   **14**      |  **460**    |   **514**        |**1487**|
+| C++                          |    6          |  315        |    168           | 1197  |
+| C/C++ Header                 |    6          |  130        |    337           |  250  |
+| CMake                        |    2          |   21        |     17           |   72  |
+| **Total**                    |   **14**      |  **466**    |   **522**        |**1519**|

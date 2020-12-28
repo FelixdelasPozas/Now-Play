@@ -20,62 +20,58 @@
 // Project
 #include <Utils.h>
 
-// Boost
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/operations.hpp>
-
 // C++
 #include <numeric>
 #include <random>
 #include <chrono>
+#include <algorithm>
 
 // Qt
 #include <QFileInfo>
 
 //-----------------------------------------------------------------------------
-bool Utils::isAudioFile(const boost::filesystem::path &path)
+bool Utils::isAudioFile(const std::filesystem::path &path)
 {
   auto extension = path.extension().string();
-  boost::algorithm::to_lower(extension);
+  toLower(extension);
 
-  return boost::filesystem::is_regular_file(path) && extension.compare(".mp3") == 0;
+  return std::filesystem::is_regular_file(path) && extension.compare(".mp3") == 0;
 }
 
 //-----------------------------------------------------------------------------
-bool Utils::isPlaylistFile(const boost::filesystem::path &path)
+bool Utils::isPlaylistFile(const std::filesystem::path &path)
 {
   auto extension = path.extension().string();
-  boost::algorithm::to_lower(extension);
+  toLower(extension);
 
-  return boost::filesystem::is_regular_file(path) && (extension.compare(".m3u") == 0 || extension.compare(".m3u8") == 0);
+  return std::filesystem::is_regular_file(path) && (extension.compare(".m3u") == 0 || extension.compare(".m3u8") == 0);
 }
 
 //-----------------------------------------------------------------------------
-bool Utils::isVideoFile(const boost::filesystem::path &path)
+bool Utils::isVideoFile(const std::filesystem::path &path)
 {
   auto extension = path.extension().string();
-  boost::algorithm::to_lower(extension);
+  toLower(extension);
 
-  return boost::filesystem::is_regular_file(path) &&
+  return std::filesystem::is_regular_file(path) &&
          (extension.compare(".mp4") == 0 || extension.compare(".mkv") == 0 || extension.compare(".webm") == 0);
 }
 
 //-----------------------------------------------------------------------------
-std::vector<Utils::FileInformation> Utils::getPlayableFiles(const boost::filesystem::path &directory)
+std::vector<Utils::FileInformation> Utils::getPlayableFiles(const std::filesystem::path &directory)
 {
   std::vector<FileInformation> files;
 
-  if(!directory.empty() && boost::filesystem::is_directory(directory))
+  if(!directory.empty() && std::filesystem::is_directory(directory))
   {
-    for(const auto &it: boost::make_iterator_range(boost::filesystem::recursive_directory_iterator{directory},{}))
+    for(const auto &it: std::filesystem::recursive_directory_iterator{directory})
     {
       const auto name = it.path();
       if(name.filename().string().compare(".") == 0 || name.filename().string().compare("..") == 0) continue;
 
       if(Utils::isAudioFile(name) || Utils::isVideoFile(name) || Utils::isPlaylistFile(name))
       {
-        files.emplace_back(name, boost::filesystem::file_size(name));
+        files.emplace_back(name, std::filesystem::file_size(name));
       }
     }
   }
@@ -86,18 +82,18 @@ std::vector<Utils::FileInformation> Utils::getPlayableFiles(const boost::filesys
 }
 
 //-----------------------------------------------------------------------------
-std::vector<Utils::FileInformation> Utils::getSubdirectories(const boost::filesystem::path &directory, bool readSize)
+std::vector<Utils::FileInformation> Utils::getSubdirectories(const std::filesystem::path &directory, bool readSize)
 {
   std::vector<FileInformation> directories;
 
-  if(!directory.empty() && boost::filesystem::is_directory(directory))
+  if(!directory.empty() && std::filesystem::is_directory(directory))
   {
-    for(const auto &it: boost::make_iterator_range(boost::filesystem::recursive_directory_iterator{directory},{}))
+    for(const auto &it: std::filesystem::recursive_directory_iterator{directory})
     {
       const auto name = it.path();
       if(name.filename().string().compare(".") == 0 || name.filename().string().compare("..") == 0) continue;
 
-      if(boost::filesystem::is_directory(it))
+      if(std::filesystem::is_directory(it))
       {
         unsigned long long size = 0L;
         if(readSize)
@@ -172,21 +168,21 @@ std::vector<Utils::FileInformation> Utils::getCopyDirectories(std::vector<Utils:
 }
 
 //-----------------------------------------------------------------------------
-bool Utils::copyDirectory(const boost::filesystem::path &from, const boost::filesystem::path &to)
+bool Utils::copyDirectory(const std::filesystem::path &from, const std::filesystem::path &to)
 {
   const wchar_t SEPARATOR = '/';
 
-  boost::system::error_code error;
+  std::error_code error;
 
   const auto newFolder = to.wstring() + SEPARATOR + from.filename().wstring();
-  boost::filesystem::create_directory(newFolder);
+  std::filesystem::create_directory(newFolder);
 
   const auto files = getPlayableFiles(from);
 
   for(auto file: files)
   {
     auto fullPath = newFolder + SEPARATOR + file.first.filename().wstring();
-    boost::filesystem::copy_file(file.first, fullPath, error);
+    std::filesystem::copy_file(file.first, fullPath, error);
 
     if (error.value() != 0)
     {
@@ -237,4 +233,10 @@ bool Utils::checkIfValidCastnowLocation(const QString &location)
   }
 
   return false;
+}
+
+//-----------------------------------------------------------------------------
+void Utils::toLower(std::string &s)
+{
+  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
 }

@@ -23,10 +23,8 @@
 // Qt
 #include <QDir>
 
-// Boost
-#include <boost/filesystem.hpp>
-
-using namespace boost;
+// C++
+#include <filesystem>
 
 //-----------------------------------------------------------------------------
 CopyThread::CopyThread(std::vector<Utils::FileInformation> selectedDirs, std::wstring destination, QObject *parent)

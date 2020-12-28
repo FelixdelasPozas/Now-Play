@@ -20,11 +20,11 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-// Boost
-#include <boost/filesystem/path.hpp>
-
 // Qt
 #include <QString>
+
+// C++
+#include <filesystem>
 
 namespace Utils
 {
@@ -32,21 +32,21 @@ namespace Utils
    * \param[in] path Absolute file path.
    *
    */
-  bool isAudioFile(const boost::filesystem::path &path);
+  bool isAudioFile(const std::filesystem::path &path);
 
   /** \brief Returns true if the given path is a playlist file.
    * \param[in] path Absolute file path.
    *
    */
-  bool isPlaylistFile(const boost::filesystem::path &path);
+  bool isPlaylistFile(const std::filesystem::path &path);
 
   /** \brief Returns true if the given path is a video file.
    * \param[in] path Absolute file path.
    *
    */
-  bool isVideoFile(const boost::filesystem::path &path);
+  bool isVideoFile(const std::filesystem::path &path);
 
-  using FileInformation = std::pair<boost::filesystem::path, uint64_t>;
+  using FileInformation = std::pair<std::filesystem::path, uint64_t>;
 
   /** \brief Order operation for FileInformation items. Returns true if lhs is less than rhs and
    * false otherwise.
@@ -60,14 +60,14 @@ namespace Utils
    * \param[in] directory Absolute path of directory to search for playable files.
    *
    */
-  std::vector<FileInformation> getPlayableFiles(const boost::filesystem::path &directory);
+  std::vector<FileInformation> getPlayableFiles(const std::filesystem::path &directory);
 
   /** \brief Returns a list of directories of the given base directory.
    * \param[in] directory Absolute path of directory to search for sub-directories.
    * \param[in] readSize True to read the sizes of the directories and false otherwise.
    *
    */
-  std::vector<FileInformation> getSubdirectories(const boost::filesystem::path &directory, bool readSize = false);
+  std::vector<FileInformation> getSubdirectories(const std::filesystem::path &directory, bool readSize = false);
 
   /** \brief Returns a random list of directories adjusted to the given size limit.
    * \param[in] dirs List of available directories.
@@ -81,7 +81,7 @@ namespace Utils
    * \param[in] to Destination directory.
    *
    */
-  bool copyDirectory(const boost::filesystem::path &from, const boost::filesystem::path &to);
+  bool copyDirectory(const std::filesystem::path &from, const std::filesystem::path &to);
 
   /** \brief Helper method to check if WinAmp location is valid.
    * \param[in] location WinAmp location on disk.
@@ -100,6 +100,12 @@ namespace Utils
    *
    */
   bool checkIfValidCastnowLocation(const QString &location);
+
+  /** \brief Transforms the given string to lower case.
+   * \param[in] s text string.
+   *
+   */
+  void toLower(std::string &s);
 }
 
 #endif // UTILS_H_

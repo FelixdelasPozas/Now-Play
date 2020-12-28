@@ -23,6 +23,7 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <filesystem>
 
 // Project
 #include "NowPlay.h"
@@ -45,10 +46,7 @@
 #include <QStringList>
 #include <QFile>
 #include <QTextStream>
-
-// Boost
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string.hpp>
+#include <QPainter>
 
 // Win64 builds
 #ifdef __WIN64__
@@ -56,8 +54,6 @@
 #include "winampapi.h"
 #include <QWinTaskbarProgress>
 #endif
-
-using namespace boost;
 
 const QString GEOMETRY     = "Geometry";
 const QString FOLDER       = "Folder";
@@ -312,11 +308,13 @@ void NowPlay::castFile()
 	
     if(m_icon->isVisible())
     {
+      const auto pIcon = progressIcon();
 #ifdef __WIN64__
-      m_icon->showMessage(title, message, QIcon(":/NowPlay/buttons.svg"), 7500);
+      m_icon->showMessage(title, message, pIcon, 7500);
 #else
       m_icon->showMessage(title, message, QSystemTrayIcon::Information, 7500);
 #endif
+      m_icon->setIcon(pIcon);
     }
 	
     m_icon->setToolTip(title + tr("\n") + message);
@@ -430,7 +428,7 @@ void NowPlay::onPlayButtonClicked()
 
   const bool isCopyMode = m_tabWidget->currentIndex() == 1;
 
-  boost::filesystem::path directory = QDir::fromNativeSeparators(m_baseDir->text()).toStdWString();
+  std::filesystem::path directory = QDir::fromNativeSeparators(m_baseDir->text()).toStdWString();
   auto validPaths = Utils::getSubdirectories(directory, isCopyMode);
 
   // Copy mode
@@ -463,7 +461,7 @@ void NowPlay::onPlayButtonClicked()
       return;
     }
 
-    if(destination.empty() || !filesystem::exists(destination) || !filesystem::is_directory(destination))
+    if(destination.empty() || !std::filesystem::exists(destination) || !std::filesystem::is_directory(destination))
     {
       showErrorMessage(tr("No destination directory to copy to."));
       return;
@@ -639,6 +637,7 @@ void NowPlay::keyPressEvent(QKeyEvent *e)
     e->accept();
     hide();
     m_icon->show();
+    updateTrayIcon();
     return;
   }
 
@@ -693,6 +692,7 @@ void NowPlay::updateGUI()
   m_next->setEnabled(false);
   m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
   m_icon->contextMenu()->actions().at(2)->setEnabled(false);
+  m_icon->setIcon(QIcon(":/NowPlay/buttons.svg"));
 
   setAcceptDrops(true);
   setFocusPolicy(Qt::FocusPolicy::StrongFocus);
@@ -802,6 +802,7 @@ void NowPlay::changeEvent(QEvent *e)
       hide();
 
       m_icon->show();
+      updateTrayIcon();
       e->ignore();
     }
   }
@@ -857,6 +858,23 @@ void NowPlay::setupTrayIcon()
   m_icon->setContextMenu(menu);
   m_icon->setToolTip(tr("Now Play!"));
   m_icon->hide();
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::updateTrayIcon()
+{
+  QIcon icon;
+
+  if(m_process.state() == QProcess::Running)
+  {
+    icon = progressIcon();
+  }
+  else
+  {
+    icon = QIcon(":/NowPlay/buttons.svg");
+  }
+
+  m_icon->setIcon(icon);
 }
 
 //-----------------------------------------------------------------------------
@@ -918,6 +936,8 @@ void NowPlay::setProgress(const int value)
     m_taskBarButton->progress()->setVisible(false);
   }
 #endif
+
+  updateTrayIcon();
 }
 
 //-----------------------------------------------------------------------------
@@ -935,8 +955,8 @@ void NowPlay::dropEvent(QDropEvent *e)
 
       for(auto filePath: fileList)
       {
-        auto file = boost::filesystem::path(filePath.toLocalFile().toStdWString());
-        if(boost::filesystem::is_regular_file(file) && (Utils::isAudioFile(file) || Utils::isVideoFile(file)))
+        auto file = std::filesystem::path(filePath.toLocalFile().toStdWString());
+        if(std::filesystem::is_regular_file(file) && (Utils::isAudioFile(file) || Utils::isVideoFile(file)))
         {
           files.emplace_back(file,0);
         }
@@ -1026,6 +1046,7 @@ void NowPlay::resetState()
   m_next->setEnabled(false);
   m_icon->contextMenu()->actions().at(1)->setText("Now Play!");
   m_icon->contextMenu()->actions().at(2)->setEnabled(false);
+  m_icon->setIcon(QIcon(":/NowPlay/buttons.svg"));
 }
 
 //-----------------------------------------------------------------------------
@@ -1070,6 +1091,27 @@ void NowPlay::setProgressRange(const int minimum, const int maximum)
 #ifdef __WIN64__
   m_taskBarButton->progress()->setRange(minimum,  maximum);
 #endif
+}
+
+//-----------------------------------------------------------------------------
+QIcon NowPlay::progressIcon()
+{
+  auto image = QIcon(":/NowPlay/buttons.svg").pixmap(255, 255, QIcon::Mode::Disabled, QIcon::State::On);
+
+  if(m_progress->maximum() != 0)
+  {
+    const double progressValue = static_cast<double>(m_progress->value()) / m_progress->maximum();
+    const int percent = std::floor(255 * progressValue);
+    const QRect rect(0, 0, percent, 255);
+    const auto colorImage = QIcon(":/NowPlay/buttons.svg").pixmap(255, 255, QIcon::Mode::Normal, QIcon::State::On).copy(rect);
+
+    QPainter painter;
+    painter.begin(&image);
+    painter.drawPixmap(rect, colorImage);
+    painter.end();
+  }
+
+  return QIcon(image);
 }
 
 //-----------------------------------------------------------------------------
