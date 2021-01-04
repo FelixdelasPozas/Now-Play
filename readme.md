@@ -51,7 +51,7 @@ Settings configuration dialog. If any of the applications is not present playing
 ![Configuration Dialog](https://user-images.githubusercontent.com/12167134/81506591-ae798b80-92f7-11ea-9a38-5d7a1b5b6a98.png)
 
 # Repository information
-**Version**: 2.5.0
+**Version**: 2.5.1
 
 **Status**: finished
 

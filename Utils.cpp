@@ -35,7 +35,7 @@ bool Utils::isAudioFile(const std::filesystem::path &path)
   auto extension = path.extension().string();
   toLower(extension);
 
-  return std::filesystem::is_regular_file(path) && extension.compare(".mp3") == 0;
+  return std::filesystem::is_regular_file(path) && (extension.compare(".mp3") == 0 || extension.compare(".m4a") == 0);
 }
 
 //-----------------------------------------------------------------------------

@@ -25,7 +25,7 @@
 #include <QtGlobal>
 #include <QKeyEvent>
 
-const QString VERSION = "2.5.0";
+const QString VERSION = "2.5.1";
 
 
 //-----------------------------------------------------------------------------
