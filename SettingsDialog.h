@@ -22,6 +22,7 @@
 
 // Project
 #include "ui_SettingsDialog.h"
+#include <Utils.h>
 
 // Qt
 #include <QDialog>
@@ -36,14 +37,26 @@ class SettingsDialog
 {
     Q_OBJECT
   public:
+    /** \struct PlayConfiguration
+     * \brief Contains the playing settings.
+     *
+     */
+    struct PlayConfiguration
+    {
+        QString winampPath;  /** WinAmp executable path.                     */
+        QString mplayerPath; /** MPlayer executable path.                    */
+        QString castnowPath; /** castnow executable path.                    */
+        bool    continuous;  /** true if continuous play or false otherwise. */
+
+        PlayConfiguration(): continuous{false} {};
+    };
+
     /** \brief SettingsDialog class constructor.
-     * \param[in] winampPath Absolute path of WinAmp executable location.
-     * \param[in] smplayerPath Absolute path of SMPlayer executable location.
-     * \param[in] castnowPath Absolute path of Castnow script location.
+     * \param[in] config PlayConfiguration struct.
      * \param[in] parent Raw pointer of the QWidget parent of this one.
      *
      */
-    explicit SettingsDialog(const QString &winampPath, const QString &smplayerPath, const QString &castnowPath, QWidget *parent = nullptr);
+    explicit SettingsDialog(const PlayConfiguration &config, QWidget *parent = nullptr);
 
     /** \brief SettingsDialog class virtual destructor.
      *
@@ -68,6 +81,12 @@ class SettingsDialog
      */
     const QString getWinampLocation() const
     { return m_winampPath->text(); }
+
+    /** \brief Returns the value of the continuous play checkbox.
+     *
+     */
+    const bool getContinuousPlay() const
+    { return m_continuousPlay->isChecked(); }
 
   private slots:
     /** \brief Browses for the given executable/script depending on the signal sender.

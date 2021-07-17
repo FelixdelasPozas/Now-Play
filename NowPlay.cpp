@@ -67,16 +67,18 @@ const QString WINAMP_LOC   = "WinAmp Location";
 const QString SMPLAYER_LOC = "SMPlayer Location";
 const QString CASTNOW_LOC  = "Castnow Location";
 const QString THEME        = "Application Theme";
+const QString CONTINUOUS   = "Continuous Play";
 
 const unsigned long long MEGABYTE = 1024*1024;
 
 //-----------------------------------------------------------------------------
 NowPlay::NowPlay()
-: QDialog  {nullptr}
-, m_process{this}
-, m_command{this}
-, m_icon   {new QSystemTrayIcon(QIcon(":/NowPlay/buttons.svg"), this)}
-, m_thread {nullptr}
+: QDialog     {nullptr}
+, m_process   {this}
+, m_command   {this}
+, m_continuous{false}
+, m_icon      {new QSystemTrayIcon(QIcon(":/NowPlay/buttons.svg"), this)}
+, m_thread    {nullptr}
 #ifdef __WIN64__
 , m_taskBarButton{nullptr}
 #endif
@@ -145,6 +147,8 @@ void NowPlay::loadSettings()
   m_videoPlayerPath = settings.value(SMPLAYER_LOC, QDir::home().absolutePath()).toString();
   m_castnowPath  = settings.value(CASTNOW_LOC,  QDir::home().absolutePath()).toString();
 
+  m_continuous = settings.value(CONTINUOUS, false).toBool();
+
   const auto theme = settings.value(THEME, QString()).toString();
 
   if(theme.compare("dark") == 0)
@@ -172,6 +176,7 @@ void NowPlay::saveSettings()
   settings.setValue(WINAMP_LOC,   m_winampPath);
   settings.setValue(SMPLAYER_LOC, m_videoPlayerPath);
   settings.setValue(CASTNOW_LOC,  m_castnowPath);
+  settings.setValue(CONTINUOUS,   m_continuous);
   settings.setValue(THEME,        qApp->styleSheet().isEmpty() ? QString():"dark");
 
   settings.sync();
@@ -269,6 +274,12 @@ void NowPlay::castFile()
 
     resetState();
 
+    return;
+  }
+
+  if(m_files.empty() && m_castnow->isChecked() && m_continuous)
+  {
+    onPlayButtonClicked();
     return;
   }
 
@@ -380,16 +391,27 @@ void NowPlay::onPlayButtonClicked()
 
   if(!m_files.empty())
   {
-    QMessageBox msgBox(this);
-    msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
-    msgBox.setWindowTitle(tr("Now Play!"));
-    msgBox.setText(tr("%1 files are on the playlist. Do you want to replace or play the current playlist?").arg(m_files.size()));
-    msgBox.setIcon(QMessageBox::Icon::Information);
-    msgBox.setStandardButtons(QMessageBox::Button::Cancel|QMessageBox::Button::Ok);
-    msgBox.button(QMessageBox::Button::Cancel)->setText("Play");
-    msgBox.button(QMessageBox::Button::Ok)->setText("Replace");
+    QMessageBox::Button button;
 
-    switch(msgBox.exec())
+    if(!(m_continuous && m_castnow->isChecked()))
+    {
+      QMessageBox msgBox(this);
+      msgBox.setWindowIcon(QIcon(":/NowPlay/buttons.svg"));
+      msgBox.setWindowTitle(tr("Now Play!"));
+      msgBox.setText(tr("%1 files are on the playlist. Do you want to replace or play the current playlist?").arg(m_files.size()));
+      msgBox.setIcon(QMessageBox::Icon::Information);
+      msgBox.setStandardButtons(QMessageBox::Button::Cancel|QMessageBox::Button::Ok);
+      msgBox.button(QMessageBox::Button::Cancel)->setText("Play");
+      msgBox.button(QMessageBox::Button::Ok)->setText("Replace");
+
+      button = static_cast<QMessageBox::Button>(msgBox.exec());
+    }
+    else
+    {
+      button = QMessageBox::Button::Cancel;
+    }
+
+    switch(button)
     {
       case QMessageBox::Button::Ok:
         m_files.clear();
@@ -768,12 +790,19 @@ void NowPlay::onSettingsButtonClicked()
 {
   const auto theme = qApp->styleSheet();
 
-  SettingsDialog dialog(m_winampPath, m_videoPlayerPath, m_castnowPath, this);
+  SettingsDialog::PlayConfiguration config;
+  config.winampPath = m_winampPath;
+  config.mplayerPath = m_videoPlayerPath;
+  config.castnowPath = m_castnowPath;
+  config.continuous = m_continuous;
+
+  SettingsDialog dialog(config, this);
   if(QDialog::Accepted == dialog.exec())
   {
     m_winampPath = dialog.getWinampLocation();
     m_videoPlayerPath = dialog.getSmplayerLocation();
     m_castnowPath = dialog.getCastnowLocation();
+    m_continuous = dialog.getContinuousPlay();
 
     checkApplications();
   }

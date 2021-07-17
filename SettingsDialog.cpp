@@ -28,15 +28,16 @@
 #include <QStyle>
 
 //-----------------------------------------------------------------------------
-SettingsDialog::SettingsDialog(const QString &winampPath, const QString &smplayerPath, const QString &castnowPath, QWidget *parent)
+SettingsDialog::SettingsDialog(const PlayConfiguration &config, QWidget *parent)
 : QDialog{parent}
 {
   setWindowFlag(Qt::WindowContextHelpButtonHint,0);
   setupUi(this);
 
-  m_winampPath->setText(QDir::toNativeSeparators(winampPath));
-  m_castnowPath->setText(QDir::toNativeSeparators(castnowPath));
-  m_videoPlayerPath->setText(QDir::toNativeSeparators(smplayerPath));
+  m_winampPath->setText(QDir::toNativeSeparators(config.winampPath));
+  m_castnowPath->setText(QDir::toNativeSeparators(config.castnowPath));
+  m_videoPlayerPath->setText(QDir::toNativeSeparators(config.mplayerPath));
+  m_continuousPlay->setChecked(config.continuous);
 
   connect(m_winampBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
   connect(m_videoPlayerBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));

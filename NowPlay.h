@@ -229,16 +229,17 @@ class NowPlay
      */
     void sendCommand(const QString &command);
 
-    std::vector<Utils::FileInformation> m_files;           /** list of files being casted.       */
-    QProcess                            m_process;         /** casting process.                  */
-    QProcess                            m_command;         /** process for casting commands.     */
-    QString                             m_winampPath;      /** WinAmp executable location.       */
-    QString                             m_videoPlayerPath; /** Video player executable location. */
-    QString                             m_castnowPath;     /** Castnow script location.          */
-    QSystemTrayIcon                    *m_icon;            /** application icon when minimized.  */
-    std::shared_ptr<CopyThread>         m_thread;          /** Copy thread if copying or null.   */
+    std::vector<Utils::FileInformation> m_files;           /** list of files being casted.                */
+    QProcess                            m_process;         /** casting process.                           */
+    QProcess                            m_command;         /** process for casting commands.              */
+    QString                             m_winampPath;      /** WinAmp executable location.                */
+    QString                             m_videoPlayerPath; /** Video player executable location.          */
+    QString                             m_castnowPath;     /** Castnow script location.                   */
+    bool                                m_continuous;      /** true for continuous play, false otherwise. */
+    QSystemTrayIcon                    *m_icon;            /** application icon when minimized.           */
+    std::shared_ptr<CopyThread>         m_thread;          /** Copy thread if copying or null.            */
 #ifdef __WIN64__
-    QWinTaskbarButton                  *m_taskBarButton;   /** taskbar progress widget.          */
+    QWinTaskbarButton                  *m_taskBarButton;   /** taskbar progress widget.                   */
 #endif
 };
 
