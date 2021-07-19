@@ -51,7 +51,7 @@ Settings configuration dialog. If any of the applications is not present playing
 ![Configuration Dialog](https://user-images.githubusercontent.com/12167134/126039799-36564c18-c6f3-4860-a17a-5e44e107a71d.png)
 
 # Repository information
-**Version**: 2.6.0
+**Version**: 2.6.1
 
 **Status**: finished
 
@@ -61,7 +61,7 @@ Settings configuration dialog. If any of the applications is not present playing
 
 | Language                     |files          |blank        |comment           |code   |
 |:-----------------------------|--------------:|------------:|-----------------:|------:|
-| C++                          |    6          |  320        |    168           | 1222  |
+| C++                          |    6          |  319        |    168           | 1224  |
 | C/C++ Header                 |    6          |  133        |    342           |  262  |
 | CMake                        |    2          |   21        |     17           |   72  |
-| **Total**                    |   **14**      |  **474**    |   **527**        |**1556**|
+| **Total**                    |   **14**      |  **473**    |   **527**        |**1558**|
