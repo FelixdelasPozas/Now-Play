@@ -277,12 +277,6 @@ void NowPlay::castFile()
     return;
   }
 
-  if(m_files.empty() && m_castnow->isChecked() && m_continuous)
-  {
-    onPlayButtonClicked();
-    return;
-  }
-
   if(!m_castnow->isChecked() || !Utils::checkIfValidCastnowLocation(m_castnowPath)) return;
 
   auto isValidFile = [](const Utils::FileInformation &f){ return Utils::isAudioFile(f.first) || Utils::isVideoFile(f.first); };
@@ -295,9 +289,9 @@ void NowPlay::castFile()
     const auto hasMoreFiles = (!m_files.empty() && std::count_if(m_files.cbegin(), m_files.cend(), isValidFile) > 0);
 
     m_play->setText("Stop");
-    m_next->setEnabled(hasMoreFiles);
+    m_next->setEnabled(hasMoreFiles || m_continuous);
     m_icon->contextMenu()->actions().at(1)->setText("Stop");
-    m_icon->contextMenu()->actions().at(2)->setEnabled(hasMoreFiles);
+    m_icon->contextMenu()->actions().at(2)->setEnabled(hasMoreFiles || m_continuous);
 
     setProgress(m_progress->value() + 1);
 
@@ -334,7 +328,14 @@ void NowPlay::castFile()
   {
     m_files.clear();
 
-    resetState();
+    if(m_continuous)
+    {
+      onPlayButtonClicked();
+    }
+    else
+    {
+      resetState();
+    }
   }
 }
 
