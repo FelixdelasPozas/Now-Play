@@ -55,19 +55,19 @@
 #include <QWinTaskbarProgress>
 #endif
 
-const QString GEOMETRY     = "Geometry";
-const QString FOLDER       = "Folder";
-const QString COPYSIZE     = "Copy Size";
-const QString COPYUNITS    = "Copy Units";
-const QString DESTINATION  = "Destination Folder";
-const QString USEWINAMP    = "Play In Winamp";
-const QString USESMPLAYER  = "Play In SMPlayer";
-const QString SUBTITLESIZE = "Subtitle Size";
-const QString WINAMP_LOC   = "WinAmp Location";
-const QString SMPLAYER_LOC = "SMPlayer Location";
-const QString CASTNOW_LOC  = "Castnow Location";
-const QString THEME        = "Application Theme";
-const QString CONTINUOUS   = "Continuous Play";
+const QString GEOMETRY      = "Geometry";
+const QString FOLDER        = "Folder";
+const QString COPYSIZE      = "Copy Size";
+const QString COPYUNITS     = "Copy Units";
+const QString DESTINATION   = "Destination Folder";
+const QString USE_AUDPLAYER = "Play In Music player";
+const QString USE_VIDPLAYER = "Play In Video player";
+const QString SUBTITLESIZE  = "Subtitle Size";
+const QString AUDPLAYER_LOC = "Music player location";
+const QString VIDPLAYER_LOC = "Video player location";
+const QString CASTNOW_LOC   = "Castnow Location";
+const QString THEME         = "Application Theme";
+const QString CONTINUOUS    = "Continuous Play";
 
 const unsigned long long MEGABYTE = 1024*1024;
 
@@ -131,21 +131,22 @@ void NowPlay::loadSettings()
 
   m_units->setCurrentIndex(copyUnits);
 
-  const auto useWinamp = settings.value(USEWINAMP, false).toBool();
-  const auto useSMPlyer = settings.value(USESMPLAYER, false).toBool();
+  const auto useAudio = settings.value(USE_AUDPLAYER, false).toBool();
+  const auto useVideo = settings.value(USE_VIDPLAYER, false).toBool();
 
-  m_winamp->setChecked(useWinamp);
-  m_smplayer->setChecked(useSMPlyer);
-  m_castnow->setChecked(!useWinamp && !useSMPlyer);
+  m_useMusicPlayer->setChecked(useAudio);
+  m_useVideoPlayer->setChecked(useVideo);
+  m_castnow->setChecked(!useAudio && !useVideo);
+  m_play->setEnabled(useAudio || useVideo || m_castnow->isChecked());
 
   const auto subtitleSize = settings.value(SUBTITLESIZE, 1.3).toDouble();
 
   m_subtitleSizeSlider->setValue(subtitleSize * 10);
   onSubtitleSizeChanged(subtitleSize * 10);
 
-  m_winampPath   = settings.value(WINAMP_LOC,   QDir::home().absolutePath()).toString();
-  m_videoPlayerPath = settings.value(SMPLAYER_LOC, QDir::home().absolutePath()).toString();
-  m_castnowPath  = settings.value(CASTNOW_LOC,  QDir::home().absolutePath()).toString();
+  m_musicPlayerPath = settings.value(AUDPLAYER_LOC, "").toString();
+  m_videoPlayerPath = settings.value(VIDPLAYER_LOC, "").toString();
+  m_castnowPath  = settings.value(CASTNOW_LOC,  "").toString();
 
   m_continuous = settings.value(CONTINUOUS, false).toBool();
 
@@ -165,34 +166,35 @@ void NowPlay::saveSettings()
 {
   QSettings settings("Felix de las Pozas Alvarez", "NowPlay");
 
-  settings.setValue(GEOMETRY,     saveGeometry());
-  settings.setValue(FOLDER,       m_baseDir->text());
-  settings.setValue(DESTINATION,  m_destinationDir->text());
-  settings.setValue(COPYSIZE,     m_amount->currentIndex());
-  settings.setValue(COPYUNITS,    m_units->currentIndex());
-  settings.setValue(USEWINAMP,    m_winamp->isChecked());
-  settings.setValue(USESMPLAYER,  m_smplayer->isChecked());
-  settings.setValue(SUBTITLESIZE, static_cast<double>(m_subtitleSizeSlider->value()/10.));
-  settings.setValue(WINAMP_LOC,   m_winampPath);
-  settings.setValue(SMPLAYER_LOC, m_videoPlayerPath);
-  settings.setValue(CASTNOW_LOC,  m_castnowPath);
-  settings.setValue(CONTINUOUS,   m_continuous);
-  settings.setValue(THEME,        qApp->styleSheet().isEmpty() ? QString():"dark");
+  settings.setValue(GEOMETRY,      saveGeometry());
+  settings.setValue(FOLDER,        m_baseDir->text());
+  settings.setValue(DESTINATION,   m_destinationDir->text());
+  settings.setValue(COPYSIZE,      m_amount->currentIndex());
+  settings.setValue(COPYUNITS,     m_units->currentIndex());
+  settings.setValue(USE_AUDPLAYER, m_useMusicPlayer->isChecked());
+  settings.setValue(USE_VIDPLAYER, m_useVideoPlayer->isChecked());
+  settings.setValue(SUBTITLESIZE,  static_cast<double>(m_subtitleSizeSlider->value()/10.));
+  settings.setValue(AUDPLAYER_LOC, m_musicPlayerPath);
+  settings.setValue(VIDPLAYER_LOC, m_videoPlayerPath);
+  settings.setValue(CASTNOW_LOC,   m_castnowPath);
+  settings.setValue(CONTINUOUS,    m_continuous);
+  settings.setValue(THEME,         qApp->styleSheet().isEmpty() ? QString():"dark");
 
   settings.sync();
 }
 
 //-----------------------------------------------------------------------------
-void NowPlay::callWinamp()
+bool NowPlay::callWinamp()
 {
 #ifdef __WIN64__
-  if(!Utils::checkIfValidWinAmpLocation(m_winampPath)) return;
-  auto handler = WinAmp::getWinAmpHandle(m_winampPath);
+  if(!Utils::checkIfValidMusicPlayerLocation(m_musicPlayerPath)) return false;
+  if(!m_musicPlayerPath.endsWith("winamp.exe", Qt::CaseInsensitive)) return false;
+  auto handler = WinAmp::getWinAmpHandle(m_musicPlayerPath);
 
   if(!handler)
   {
     showErrorMessage(tr("Unable to launch or contact WinAmp"));
-    return;
+    return false;
   }
 
   WinAmp::deletePlaylist(handler);
@@ -223,13 +225,15 @@ void NowPlay::callWinamp()
     {
       const auto message = tr("No playable files found in directory: ") + QString::fromStdWString(m_files.front().first.parent_path().wstring());
       showErrorMessage(message);
-      return;
+      return false;
     }
   }
 
   m_files.clear();
 
   WinAmp::startPlay(handler);
+
+  return true;
 #endif
 }
 
@@ -434,7 +438,7 @@ void NowPlay::onPlayButtonClicked()
           }
           else
           {
-            if(m_smplayer->isChecked())
+            if(m_useVideoPlayer->isChecked())
             {
               playVideos();
             }
@@ -568,9 +572,12 @@ void NowPlay::onPlayButtonClicked()
 
   if(!m_files.empty())
   {
-    if(m_winamp->isChecked())
+    if(m_useMusicPlayer->isChecked())
     {
-      callWinamp();
+      if(!callWinamp())
+      {
+        playAudio();
+      }
     }
     else
     {
@@ -724,16 +731,16 @@ void NowPlay::updateGUI()
 //-----------------------------------------------------------------------------
 void NowPlay::checkApplications()
 {
-  const auto validWinamp   = Utils::checkIfValidWinAmpLocation(m_winampPath);
-  const auto validSMPlayer = Utils::checkIfValidVideoPlayerLocation(m_videoPlayerPath);
-  const auto validCastnow  = Utils::checkIfValidCastnowLocation(m_castnowPath);
+  const auto validMusicPlayer = Utils::checkIfValidMusicPlayerLocation(m_musicPlayerPath);
+  const auto validVideoPlayer = Utils::checkIfValidVideoPlayerLocation(m_videoPlayerPath);
+  const auto validCastnow     = Utils::checkIfValidCastnowLocation(m_castnowPath);
 
-  m_winamp->setEnabled(validWinamp);
-  m_smplayer->setEnabled(validSMPlayer);
+  m_useMusicPlayer->setEnabled(validMusicPlayer);
+  m_useVideoPlayer->setEnabled(validVideoPlayer);
   m_castnow->setEnabled(validCastnow);
   m_subtitleSizeSlider->setEnabled(validCastnow);
 
-  const auto isValid = validWinamp || validSMPlayer || validCastnow;
+  const auto isValid = validMusicPlayer || validVideoPlayer || validCastnow;
   m_play->setEnabled(isValid);
 }
 
@@ -792,16 +799,16 @@ void NowPlay::onSettingsButtonClicked()
   const auto theme = qApp->styleSheet();
 
   SettingsDialog::PlayConfiguration config;
-  config.winampPath = m_winampPath;
-  config.mplayerPath = m_videoPlayerPath;
+  config.musicPlayerPath = m_musicPlayerPath;
+  config.videoPlayerPath = m_videoPlayerPath;
   config.castnowPath = m_castnowPath;
   config.continuous = m_continuous;
 
   SettingsDialog dialog(config, this);
   if(QDialog::Accepted == dialog.exec())
   {
-    m_winampPath = dialog.getWinampLocation();
-    m_videoPlayerPath = dialog.getSmplayerLocation();
+    m_musicPlayerPath = dialog.getMusicPlayerLocation();
+    m_videoPlayerPath = dialog.getVideoPlayerLocation();
     m_castnowPath = dialog.getCastnowLocation();
     m_continuous = dialog.getContinuousPlay();
 
@@ -1152,4 +1159,25 @@ void NowPlay::sendCommand(const QString &command)
     m_command.startDetached(m_castnowPath, QStringList{"--command", command,"--exit"});
     m_command.waitForFinished(-1);
   }
+}
+
+//-----------------------------------------------------------------------------
+void NowPlay::playAudio()
+{
+  if(!Utils::checkIfValidMusicPlayerLocation(m_musicPlayerPath)) return;
+
+  QStringList arguments;
+
+  auto addToArguments = [&arguments](const Utils::FileInformation &f)
+  {
+    if(Utils::isPlaylistFile(f.first))
+    {
+      arguments << QString::fromStdWString(f.first.wstring());
+    }
+  };
+  std::for_each(m_files.cbegin(), m_files.cend(), addToArguments);
+
+  m_process.startDetached(m_musicPlayerPath, arguments);
+
+  m_files.clear();
 }

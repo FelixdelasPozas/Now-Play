@@ -7,12 +7,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-cmake_minimum_required (VERSION 2.8.6)
+cmake_minimum_required (VERSION 3.23)
 
 # Version Number
 set (NOWPLAY_VERSION_MAJOR 2)
-set (NOWPLAY_VERSION_MINOR 6)
-set (NOWPLAY_VERSION_PATCH 1)
+set (NOWPLAY_VERSION_MINOR 7)
+set (NOWPLAY_VERSION_PATCH 0)
 
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON)

@@ -182,15 +182,21 @@ class NowPlay
      */
     void showErrorMessage(const QString &message, const QString &title = "Error", const QString &details = QString());
 
-    /** \brief Plays the list of files with winamp.
+    /** \brief Plays the list of files with winamp if found. Returns true if winamp has been found
+     *  and false otherwise.
      *
      */
-    void callWinamp();
+    bool callWinamp();
 
-    /** \brief Plays the list of files with SMPlayer.
+    /** \brief Plays the list of files with the video player.
      *
      */
     void playVideos();
+
+    /** \brief Plays the music files with the music player.
+     *
+     */
+    void playAudio();
 
     /** \brief Helper method that updates the GUI in constructor according to the application settings.
      *
@@ -232,7 +238,7 @@ class NowPlay
     std::vector<Utils::FileInformation> m_files;           /** list of files being casted.                */
     QProcess                            m_process;         /** casting process.                           */
     QProcess                            m_command;         /** process for casting commands.              */
-    QString                             m_winampPath;      /** WinAmp executable location.                */
+    QString                             m_musicPlayerPath; /** Music player executable location.          */
     QString                             m_videoPlayerPath; /** Video player executable location.          */
     QString                             m_castnowPath;     /** Castnow script location.                   */
     bool                                m_continuous;      /** true for continuous play, false otherwise. */

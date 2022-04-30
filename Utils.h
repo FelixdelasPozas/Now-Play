@@ -83,11 +83,11 @@ namespace Utils
    */
   bool copyDirectory(const std::filesystem::path &from, const std::filesystem::path &to);
 
-  /** \brief Helper method to check if WinAmp location is valid.
+  /** \brief Helper method to check if music player location is valid.
    * \param[in] location WinAmp location on disk.
    *
    */
-  bool checkIfValidWinAmpLocation(const QString &location);
+  bool checkIfValidMusicPlayerLocation(const QString &location);
 
   /** \brief Helper method to check if video player location is valid.
    * \param[in] location Video player location on disk.

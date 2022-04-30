@@ -81,7 +81,7 @@
        <item>
         <layout class="QGridLayout" name="gridLayout" columnstretch="0,1,1,0">
          <item row="0" column="0">
-          <widget class="QRadioButton" name="m_winamp">
+          <widget class="QRadioButton" name="m_useMusicPlayer">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -95,7 +95,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Play in WinAmp</string>
+            <string>Play in music player</string>
            </property>
           </widget>
          </item>
@@ -182,7 +182,7 @@
           </widget>
          </item>
          <item row="1" column="0">
-          <widget class="QRadioButton" name="m_smplayer">
+          <widget class="QRadioButton" name="m_useVideoPlayer">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -196,7 +196,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Play in SMPlayer</string>
+            <string>Play in video player</string>
            </property>
           </widget>
          </item>

@@ -31,7 +31,7 @@ The following file formats are detected and supported by the tool as input files
 The following libraries are required to build the tool:
 * [Qt opensource framework](http://www.qt.io/).
 
-The tool will need the following applications to play selected media:
+The tool is somewhat customized for the following media players (but will work with any that accepts files via command-line options like foobar2000):
 * [WinAmp](http://www.winamp.com/).
 * [SMPlayer](https://www.smplayer.info/).
 * [Castnow](https://github.com/xat/castnow).
@@ -51,7 +51,7 @@ Settings configuration dialog. If any of the applications is not present playing
 ![Configuration Dialog](https://user-images.githubusercontent.com/12167134/126039799-36564c18-c6f3-4860-a17a-5e44e107a71d.png)
 
 # Repository information
-**Version**: 2.6.1
+**Version**: 2.7.0
 
 **Status**: finished
 
@@ -61,7 +61,7 @@ Settings configuration dialog. If any of the applications is not present playing
 
 | Language                     |files          |blank        |comment           |code   |
 |:-----------------------------|--------------:|------------:|-----------------:|------:|
-| C++                          |    6          |  319        |    168           | 1224  |
-| C/C++ Header                 |    6          |  133        |    342           |  262  |
+| C++                          |    6          |  325        |    169           | 1245  |
+| C/C++ Header                 |    6          |  134        |    346           |  263  |
 | CMake                        |    2          |   21        |     17           |   72  |
-| **Total**                    |   **14**      |  **473**    |   **527**        |**1558**|
+| **Total**                    |   **14**      |  **480**    |   **532**        |**1580**|

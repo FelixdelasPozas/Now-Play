@@ -200,12 +200,12 @@ bool Utils::lessThan(const FileInformation &lhs, const FileInformation &rhs)
 }
 
 //-----------------------------------------------------------------------------
-bool Utils::checkIfValidWinAmpLocation(const QString &location)
+bool Utils::checkIfValidMusicPlayerLocation(const QString &location)
 {
   if(!location.isEmpty())
   {
     QFileInfo file(location);
-    return location.endsWith("winamp.exe", Qt::CaseInsensitive) && file.exists();
+    return file.exists();
   }
 
   return false;
@@ -217,7 +217,7 @@ bool Utils::checkIfValidVideoPlayerLocation(const QString &location)
   if(!location.isEmpty())
   {
     QFileInfo file(location);
-    return file.exists() && (location.endsWith("smplayer.exe", Qt::CaseInsensitive) || location.endsWith("totem", Qt::CaseInsensitive));
+    return file.exists();
   }
 
   return false;

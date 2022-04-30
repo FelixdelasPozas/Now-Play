@@ -43,10 +43,10 @@ class SettingsDialog
      */
     struct PlayConfiguration
     {
-        QString winampPath;  /** WinAmp executable path.                     */
-        QString mplayerPath; /** MPlayer executable path.                    */
-        QString castnowPath; /** castnow executable path.                    */
-        bool    continuous;  /** true if continuous play or false otherwise. */
+        QString musicPlayerPath; /** Music player path.                          */
+        QString videoPlayerPath; /** Video player path.                          */
+        QString castnowPath;     /** castnow executable path.                    */
+        bool    continuous;      /** true if continuous play or false otherwise. */
 
         PlayConfiguration(): continuous{false} {};
     };
@@ -73,14 +73,14 @@ class SettingsDialog
     /** \brief Returns the location of the SMPlayer executable.
      *
      */
-    const QString getSmplayerLocation() const
+    const QString getVideoPlayerLocation() const
     { return m_videoPlayerPath->text(); }
 
     /** \brief Returns the location of the WinAmp executable.
      *
      */
-    const QString getWinampLocation() const
-    { return m_winampPath->text(); }
+    const QString getMusicPlayerLocation() const
+    { return m_musicPlayerPath->text(); }
 
     /** \brief Returns the value of the continuous play checkbox.
      *

@@ -34,12 +34,12 @@ SettingsDialog::SettingsDialog(const PlayConfiguration &config, QWidget *parent)
   setWindowFlag(Qt::WindowContextHelpButtonHint,0);
   setupUi(this);
 
-  m_winampPath->setText(QDir::toNativeSeparators(config.winampPath));
+  m_musicPlayerPath->setText(QDir::toNativeSeparators(config.musicPlayerPath));
   m_castnowPath->setText(QDir::toNativeSeparators(config.castnowPath));
-  m_videoPlayerPath->setText(QDir::toNativeSeparators(config.mplayerPath));
+  m_videoPlayerPath->setText(QDir::toNativeSeparators(config.videoPlayerPath));
   m_continuousPlay->setChecked(config.continuous);
 
-  connect(m_winampBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
+  connect(m_musicPlayerBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
   connect(m_videoPlayerBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
   connect(m_castnowBrowse, SIGNAL(pressed()), this, SLOT(onBrowseButtonClicked()));
 
@@ -58,17 +58,17 @@ void SettingsDialog::onBrowseButtonClicked()
   QString path;
   QString filter;
 
-  if(button == m_winampBrowse)
+  if(button == m_musicPlayerBrowse)
   {
-    title = tr("WinAmp Executable Location");
-    path = m_winampPath->text();
+    title = tr("Music player executable Location");
+    path = m_musicPlayerPath->text();
     filter = tr("Executables (*.exe)");
   }
   else
   {
     if(button == m_videoPlayerBrowse)
     {
-      title = tr("SMPlayer Executable Location");
+      title = tr("Video player executable Location");
       path = m_videoPlayerPath->text();
       filter = tr("Executables (*.exe)");
     }
@@ -87,7 +87,7 @@ void SettingsDialog::onBrowseButtonClicked()
   const auto file = QFileDialog::getOpenFileName(this, title, path, filter, &filter, QFileDialog::Option::ReadOnly);
   if(!file.isEmpty())
   {
-    if(button == m_winampBrowse) m_winampPath->setText(QDir::toNativeSeparators(file));
+    if(button == m_musicPlayerBrowse) m_musicPlayerPath->setText(QDir::toNativeSeparators(file));
     else if(button == m_videoPlayerBrowse) m_videoPlayerPath->setText(QDir::toNativeSeparators(file));
     else m_castnowPath->setText(QDir::toNativeSeparators(file));
   }
